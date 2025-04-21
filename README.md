@@ -5,7 +5,9 @@ The repo includes an `index.html` file (so it can render a web page), two GitHub
 
 
 
-## nodes
+## Overall Nodes Design
+
+##Initial Pipline
 
 - **Query Router**  
   Routes user queries to appropriate nodes.
