@@ -1,5 +1,8 @@
 # Overall Nodes Design
 
+![Logo](https://i.imgur.com/eLkGDa3.png)
+
+
 ## Initial Pipline
 
 - **Query Router**  
