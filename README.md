@@ -1,7 +1,7 @@
 # Overall Nodes Design
 
 ![Imgur](https://i.imgur.com/2sBn8MM.jpeg)
-![Imgur](https://imgur.com/KBFKxjN.png)
+![Imgur](https://imgur.com/Alv3LBy.png)
 
 ## Initial Pipline
 
@@ -43,3 +43,17 @@
 
 - **Streamlit (Frontend)**  
   web-based interface for user interaction and used to fetch previous question.
+
+
+## Agents Checklist
+- Same Question Check
+- Query Router
+- Satisfactory Check
+- Chitter-Chatter(TA info)
+- Document Retriever
+- ✅ Relevance Grader
+- Web Searcher
+- Hint Generator
+- ✅ Hallucination Checker
+- ✅ Answer Verifier
+- Query Rewriter

@@ -78,6 +78,7 @@ book_data_vector_store = PGVector(
     use_jsonb=True, 
 )
 
+# Agent: Query Router
 # Define the routing prompt
 query_router_prompt_template = PromptTemplate.from_template("""
 You are an expert at analyzing user question and deciding which data source is best suited to answer them. You must choose **one** of the following options:
@@ -188,29 +189,31 @@ def reciprocal_rank_fusion(results, k=60):
     # Return the list of documents with scores embedded in metadata
     return reranked_documents
 
+# Agent: Relevance Grader
 # Define the relevance grader prompt
 relevance_grader_prompt_template = PromptTemplate.from_template("""
-You are a a relevance grader evaluating whether a retrieved document is helpful in answering a user question.
+You are a relevance grader evaluating whether a retrieved document is helpful in answering a user question about the IST 345 course at Claremont Graduate University.
 
 ---
 
-**Retrieved Document**: 
+**Retrieved Document**:
 {document}
 
-**User Question**: 
+**User Question**:
 {question}
 
 ---
 
-**Your Task**:                                                          
-Carefully and  objectively assess whether the document contains any **keyword overlap** or **semantic meaning** that is relevant to the question.
-Do not require a full answer—just some relevant content is enough to pass. It must be about Claremont Graduate University.
+**Your Task**:                                                           
+Carefully and objectively assess whether the document contains any **keyword overlap**, **semantic relevance**, or **contextual alignment** with the user's question related to IST 345, its assignments, labs, policies, or related course material.
+You do NOT need a complete answer—any partial but contextually relevant information that could aid the user is enough to pass.
 
 Return your decision as a JSON object with twith keys: "binary_score". 
 The "binary_score" should be "pass" or "fail" indicating relevance.
 """)
 
-# Define the prompt template for answer generation
+# Agent: Hint Generator
+# Define the prompt template for Hint generation
 answer_generator_prompt_template = PromptTemplate.from_template("""
 You are now operating in Learning Mode, designed to encourage independent thinking and deeper comprehension. Follow these strict guidelines:
 
@@ -247,6 +250,7 @@ Use the following information to help answer the question:
 **Answer**:
 """)
 
+# Agent: Hallucination Checker
 # Define the hallucination checker prompt
 hallucination_checker_prompt_template = PromptTemplate.from_template("""
 You are an AI grader evaluating whether a student's answer is factually grounded in the provided reference materials.
@@ -273,32 +277,34 @@ Return a JSON object with keys: "binary_score" and "explanation".
 - `"explanation"`: a short justification of the grading decision                                                                     
 """)
 
+# Agent: Answer Verifier
 # Define the answer verifier prompt
 answer_verifier_prompt_template = PromptTemplate.from_template("""
-You are an AI grader verifying whether a student's answer correctly addresses the given question.
+You are an AI grader evaluating whether the AI-generated answer accurately and meaningfully addresses a user question about IST 345 course Generative AI at CGU or its related academic content.
 
 ---
 
 **Grading Criteria**:
-- **Pass**: The answer directly addresses the question, even if it includes additional relevant context.
-- **Fail**: The answer is off-topic, misses the point, or does not meaningfully respond to the question. Or the information is about schools other than Claremont Graduate University(CGU).
+- **Pass**: The answer is factually accurate, relevant to the question, and pertains specifically to IST 345 course—even if it includes additional helpful context.
+- **Fail**: The answer is off-topic, incorrect, vague, or refers to other institutions, courses, or irrelevant content not associated with IST 345 course.
 
 ---
 
-**question**: 
+**User Question**:
 {question}
 
-**Student's Answer**: 
+**AI-Generated Answer**:
 {generation}
 
 ---
-                                                               
+
 **Output Instructions**:
 Return aJSONobject with keys: "binary_score" and "explanation"  
 - "binary_score": either `"pass"` or `"fail"` 
 - "explanation":  a short justification for your grading decision
 """)
 
+# Agent: Query Rewriter
 # Define the query rewriter prompt
 query_rewriter_prompt_template = PromptTemplate.from_template("""
 You are a query optimization expert tasked with rewriting questions to improve vector database retrieval accuracy.
