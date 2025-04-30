@@ -44,7 +44,7 @@ os.environ["LANGCHAIN_PROJECT"] = "GenAI-Class-Final"
 # Configure Database Connection
 # Use the same shared table as from the last lab
 shared_connection_string = make_url(connection_string)\
-    .set(database="GenAI_Spring25_Shengjie_Qian").render_as_string(hide_password=False) # Leave password visible for local testing
+    .set(database="GenAI_Spring25_Shengjie_Qian_db").render_as_string(hide_password=False) # Leave password visible for local testing
 
 # Initialize the embedding model
 embedding_model = OpenAIEmbeddings(model="text-embedding-3-large")
@@ -78,6 +78,25 @@ book_data_vector_store = PGVector(
     use_jsonb=True, 
 )
 
+# Agent: Same Question Check
+# Define the prompt
+same_question_check_template = PromptTemplate.from_template("""
+You are an checker at analyzing user question and deciding if the user is repeatedly asking the same question or asking to retry the question. You must choose **one** of the following options:
+
+1. **Pass**: Use this if the question can be answered by the **existing** answer in the previous conversations. 
+                                                            
+---                                                         
+                                                                                                                          
+2. **Fail**: Use this if the question is **new** or **continuation** of the previous question.
+                             
+
+Your Task:
+Analyze the user's question. Return a JSON object with one key `"Check"` and one value: `"Pass"` or `"Fail"`.
+
+""")
+
+
+
 # Agent: Query Router
 # Define the routing prompt
 query_router_prompt_template = PromptTemplate.from_template("""
@@ -95,9 +114,11 @@ You are an expert at analyzing user question and deciding which data source is b
                                                                                                                 
 ---                                                         
                                                               
-3. "NotIST345": Use this if the question:
+3. **Chitter-Chatter**: Use this if the question:
    - Is **not related** to the scope below, or
    - Is too **broad, casual, or off-topic** to be answered using vectorstore or websearch.
+   
+   Chitter-Chatter is a fallback agent that gives a friendly response and a follow-up to guide users back to relevant topics.
                                                             
 ---
                                                             
@@ -107,7 +128,7 @@ Relevant questions are those related to **{relevant_scope}**
 ---                                                        
 
 Your Task:
-Analyze the user's question. Return a JSON object with one key `"Datasource"` and one value: `"Vectorstore"`, `"Websearch"`, or `"NotCGU"`.
+Analyze the user's question. Return a JSON object with one key `"Datasource"` and one value: `"Vectorstore"`, `"Websearch"`, or `"Chitter-Chatter"`.
 
 """)
 
@@ -253,7 +274,7 @@ Use the following information to help answer the question:
 # Agent: Hallucination Checker
 # Define the hallucination checker prompt
 hallucination_checker_prompt_template = PromptTemplate.from_template("""
-You are an AI grader evaluating whether a student's answer is factually grounded in the provided reference materials.
+You are an AI grader evaluating whether AI-Generated Answer is factually grounded in the provided reference materials.
 
 ---
 
@@ -266,7 +287,7 @@ You are an AI grader evaluating whether a student's answer is factually grounded
 **Reference Materials (FACTS)**:
 {documents}
 
-**Student's Answer**:
+**AI-Generated Answer**:
 {generation}
 
 ---
@@ -337,6 +358,49 @@ Return a JSON object with keys: "rewritten_question" and "explanation".
 - "explanation": A short explanation of how the rewrite improves coverage or clarity
 """)
 
+# Define the Chitter-Chatter prompt
+chitterchatter_prompt_template = PromptTemplate.from_template("""
+You are a friendly teacher assistant designed to keep conversations within the current scope while maintaining a warm, helpful tone.
+
+---
+
+**Current Scope**:
+{relevant_scope}
+
+Your job is to respond conversationally while gently guiding the user toward relevant and productive discussions.
+
+---
+                                                              
+**Response Guidelines**:
+
+1. **Casual Chit-Chat**:
+  - Respond warmly to greetings and social exchanges. 
+  - Maintain a natural, friendly tone.
+
+2. **Off-Topic Questions**:  
+  - Politely acknowledge the question.  
+  - Mention that it falls outside your current scope.  
+  - Redirect to a relevant topic or ask a follow-up question within scope.
+  - Avoid saying "I don't know" without offering guidance.
+
+3. **In-Scope but Unanswerable Questions**:                                                            
+  - If the question fits the scope but lacks enough information to answer reliably:
+    - Acknowledge the gap.
+    - Avoid making unsupported claims.                                                    
+    - Redirect the user toward a more specific or better-supported question.
+
+---
+
+**Important**: 
+Never invent or guess answers using general world knowledge. 
+Your job is to **maintain trust** by keeping the conversation focused and grounded.                                                     
+Always include with a helpful redirection, question, or suggestion related to the scope above.
+Always inlude the following :
+"For better Q/A, please contact the Professor and TA @
+Instructor: Yan.Li@cgu.edu
+TA: Kaijie.Yu@cgu.edu (for lab tutoring)
+TA: Yongjia.Sun@cgu.edu (for data management)"                                                              
+""")
 
 # Define the web search tool
 web_search_tool = TavilySearchResults(
@@ -352,11 +416,12 @@ class GraphState(TypedDict):
     Graph state is a dictionary that contains information we want to propagate to, and modify in, each graph node.
     """
     question: str                        # User question
-    original_question: str              # Copy of original question
+    original_question: str               # Copy of original question
     generation: str                      # LLM generation
+    check: str                           # same question pass or fail
     datasource: str                      # Output from router node: Vectorstore, Websearch, or Chitter-Chatter
     hallucination_checker_attempts: int  # Number of times hallucination checker has been triggered
-    answer_verifier_attempts: int         # Number of times answer verifier has been triggered
+    answer_verifier_attempts: int        # Number of times answer verifier has been triggered
     documents: List[str]                 # List of retrieved documents from vectorstore or web search
     checker_result: str                  # Result of document relevance check: 'pass' or 'fail'
 
@@ -409,8 +474,10 @@ def document_retriever(state):
     
      # Display summary of where results came from (for teaching purposes)
     print(f"Total number of results: {len(rag_fusion_mmr_results)}")
-    for i, doc in enumerate(rag_fusion_mmr_results, start=1):
-        print(f"     Document {i} from `{doc.metadata['source']}`, section_title {doc.metadata['section_title']}")
+    
+    #TAKING IT out since we dont have the metadata
+    #for i, doc in enumerate(rag_fusion_mmr_results, start=1):
+        #print(f"     Document {i} from `{doc.metadata['source']}`, section_title {doc.metadata['section_title']}")
 
     # Convert retrieved documents into Document objects with metadata and page_content only
     formatted_doc_results = [
@@ -494,7 +561,7 @@ def web_search(state):
 
     print("\n---WEB SEARCH---")
 
-    question = state["question"] + "for CGU"
+    question = state["question"]
     documents = state.get("documents", [])
 
     # Run the web search using the web search tool 
@@ -525,11 +592,29 @@ def web_search(state):
     print(f"Total number of web search documents: {len(formatted_web_results)}")
     return {"documents": documents}
 
-# ------------------------ NotCGU Node ------------------------
-def NotCGU(state):
-    return {"generation": "Unable to answer the questions regarding CGU. Please let me know if you have any questions regarding CGU."}
+# ------------------------ Chitter-Chatter Node ------------------------
+def chitter_chatter(state):
+    """
+    Handles casual, off-topic, or unanswerable in-scope questions using a fallback assistant.
 
-# "Unable to answer the questions regarding CGU. Please let me know if you have any questions regarding CGU."
+    This node is designed to keep the user engaged and politely redirect them toward questions
+    that are better suited to the system's capabilities.
+
+    Args:
+        state (GraphState): Current graph state containing the user question.
+
+    Returns:
+        dict: Response from the Chitter-Chatter agent under the key `"generation"`.
+    """
+    print("\n---CHIT-CHATTING---")
+    question = state["question"]
+    chitterchatter_prompt = chitterchatter_prompt_template.format(relevant_scope=relevant_scope)
+    # Generate a friendly fallback response using the Chitter-Chatter prompt
+    chitterchatter_response = llm_gpt_mini.invoke(
+        [SystemMessage(chitterchatter_prompt),
+         HumanMessage(question)])
+    
+    return {"generation": chitterchatter_response.content}
 
 # ------------------------ Adaptive Query Rewrite Node ------------------------
 def query_rewriter(state):
@@ -607,6 +692,34 @@ def answer_verifier_tracker(state):
     num_attempts = state.get("answer_verifier_attempts", 0)
     return {"answer_verifier_attempts": num_attempts + 1}
 
+# ------------------------ Same Question Check  ------------------------
+def same_check(state):
+    """
+    Routes the user question to the appropriate agent based on the Same Question Check's classification.  
+
+    Args:
+        state (GraphState): Contains the user's input question.
+
+    Returns:
+        str: One of 'Pass' or 'Fail'.
+    """
+    print("---SAME QUESTION?---")
+    question = state["question"]
+    
+    same_question_response = llm_gpt.with_structured_output(method="json_mode").invoke(
+        [SystemMessage(same_question_check_template),
+        HumanMessage(question)]
+    )
+
+    same_question_check_output = same_question_response["Check"]
+    
+    if same_question_check_output == "Fail":
+        print("---ROUTING QUESTION TO WEB SEARCH---")
+        return "Router"
+    elif same_question_check_output == "Pass":
+        print("---ROUTING QUESTION TO Chitter-Chatter---")
+        return "Chitter-Chatter"
+
 # ------------------------ Routing Decision  ------------------------
 def route_question(state):
     """
@@ -616,7 +729,7 @@ def route_question(state):
         state (GraphState): Contains the user's input question.
 
     Returns:
-        str: One of 'Vectorstore', 'Websearch', or 'NotCGU'.
+        str: One of 'Vectorstore', 'Websearch', or 'Chitter-Chatter'.
     """
     print("---ROUTING QUESTION---")
     question = state["question"]
@@ -636,9 +749,9 @@ def route_question(state):
     elif parsed_router_output == "Vectorstore":
         print("---ROUTING QUESTION TO VECTORSTORE---")
         return "Vectorstore"
-    elif parsed_router_output == "NotCGU":
-        print("---ROUTING QUESTION TO NotCGU---")
-        return "NotCGU"
+    elif parsed_router_output == "Chitter-Chatter":
+        print("---ROUTING QUESTION TO Chitter-Chatter---")
+        return "Chitter-Chatter"
 
 
 # ------------------------ Async document relevance grading  ------------------------
@@ -835,7 +948,8 @@ workflow.add_node("DocumentRetriever", document_retriever)      # Multi-query RA
 workflow.add_node("RelevanceGrader", grade_documents_parallel)  # Async document evaluation
 workflow.add_node("AnswerGenerator", answer_generator)          # Generate grounded response
 workflow.add_node("QueryRewriter", query_rewriter)              # Rewrite query if generation fails
-workflow.add_node("NotCGU", NotCGU)            #  Fallback for unsupported input
+workflow.add_node("ChitterChatter", chitter_chatter)           #  Fallback for unsupported input
+workflow.add_node("QueryRouter", route_question)                #  Routes question after checking if its the same question
 
 # === Add retry tracker nodes ===
 workflow.add_node("HallucinationCheckerFailed", hallucination_checker_tracker)
@@ -845,9 +959,10 @@ workflow.add_node("AnswerVerifierFailed", answer_verifier_tracker)
 workflow.set_conditional_entry_point(
     route_question,
     {
+        "Router": "QueryRouter", 
         "Websearch": "WebSearcher",
         "Vectorstore": "DocumentRetriever",
-        "NotCGU": "NotCGU",
+        "Chitter-Chatter": "ChitterChatter",
     },
 )
 
@@ -858,7 +973,7 @@ workflow.add_edge("WebSearcher", "AnswerGenerator")                 # Web search
 workflow.add_edge("HallucinationCheckerFailed", "AnswerGenerator")  # Retry after failed grounding
 workflow.add_edge("AnswerVerifierFailed", "QueryRewriter")          # Retry after poor answer
 workflow.add_edge("QueryRewriter", "DocumentRetriever")             # Rewritten query → new retrieval
-workflow.add_edge("NotCGU", END)                            # End if fallback agent used
+workflow.add_edge("ChitterChatter", END)                            # End if fallback agent used
 
 # === Conditional routing after document grading ===
 workflow.add_conditional_edges(
@@ -878,7 +993,7 @@ workflow.add_conditional_edges(
         "not supported": "HallucinationCheckerFailed",  # Hallucinated → Retry generation
         "useful": END,                                  # Success
         "not useful": "AnswerVerifierFailed",           # Off-topic → Rewrite & retry
-        "max retries": "NotCGU"                 # Stop after too many failures
+        "max retries": "ChitterChatter"                 # Stop after too many failures
     },
 )
 

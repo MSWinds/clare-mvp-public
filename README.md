@@ -46,14 +46,14 @@
 
 
 ## Agents Checklist
-- Same Question Check
-- Query Router
+- (WIP)Same Question Check: I am thinking of combinining same question check and chitterchatter and I have added the nodes and prompt but i dont know how to test it or how to make it start on the node
 - Satisfactory Check
-- Chitter-Chatter(TA info)
-- Document Retriever
-- ✅ Relevance Grader
-- Web Searcher
-- Hint Generator
+- ✅Query Router
+- ✅Chitter-Chatter(TA info)
+- ✅Document Retriever
+- ✅Relevance Grader
+- ✅Web Searcher
+- (WIP need to include long term memoty later but it works for now)✅ Hint Generator
 - ✅ Hallucination Checker
 - ✅ Answer Verifier
-- Query Rewriter
+- ✅ Query Rewriter
