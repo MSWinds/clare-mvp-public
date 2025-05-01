@@ -24,13 +24,6 @@ except Exception as e:
 
 # Page config
 st.set_page_config(
-    page_title='Claremont Graduate College Assistant',
-    page_icon="📚",
-    layout="centered"
-)
-
-# Page config
-st.set_page_config(
     page_title='Clare-AI - TA Assistant',
     page_icon="clare_pic.jpg",
     layout="wide"
@@ -47,7 +40,7 @@ st.markdown(
 )
 # Create the sidebar section
 with st.sidebar:
-    st.image("clare_pic-removebg")  # Clare logo
+    st.image("clare_pic-removebg.png")  # Clare logo
     st.markdown("## 🤖 Clare-AI: Your IST 345 Assistant")
     st.markdown("""
     Welcome to **Clare-AI**, your dedicated assistant for **CGU IST 345.1 – Building Generative AI Applications**.
