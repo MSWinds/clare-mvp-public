@@ -78,24 +78,6 @@ book_data_vector_store = PGVector(
     use_jsonb=True, 
 )
 
-# Agent: Same Question Check
-# Define the prompt
-same_question_check_template = PromptTemplate.from_template("""
-You are an checker at analyzing user question and deciding if the user is repeatedly asking the same question or asking to retry the question. You must choose **one** of the following options:
-
-1. **Pass**: Use this if the question can be answered by the **existing** answer in the previous conversations. 
-                                                            
----                                                         
-                                                                                                                          
-2. **Fail**: Use this if the question is **new** or **continuation** of the previous question.
-                             
-
-Your Task:
-Analyze the user's question. Return a JSON object with one key `"Check"` and one value: `"Pass"` or `"Fail"`.
-
-""")
-
-
 
 # Agent: Query Router
 # Define the routing prompt
@@ -692,33 +674,6 @@ def answer_verifier_tracker(state):
     num_attempts = state.get("answer_verifier_attempts", 0)
     return {"answer_verifier_attempts": num_attempts + 1}
 
-# ------------------------ Same Question Check  ------------------------
-def same_check(state):
-    """
-    Routes the user question to the appropriate agent based on the Same Question Check's classification.  
-
-    Args:
-        state (GraphState): Contains the user's input question.
-
-    Returns:
-        str: One of 'Pass' or 'Fail'.
-    """
-    print("---SAME QUESTION?---")
-    question = state["question"]
-    
-    same_question_response = llm_gpt.with_structured_output(method="json_mode").invoke(
-        [SystemMessage(same_question_check_template),
-        HumanMessage(question)]
-    )
-
-    same_question_check_output = same_question_response["Check"]
-    
-    if same_question_check_output == "Fail":
-        print("---ROUTING QUESTION TO WEB SEARCH---")
-        return "Router"
-    elif same_question_check_output == "Pass":
-        print("---ROUTING QUESTION TO Chitter-Chatter---")
-        return "Chitter-Chatter"
 
 # ------------------------ Routing Decision  ------------------------
 def route_question(state):
@@ -806,7 +761,7 @@ async def grade_documents_parallel(state):
         filtered_out_percentage = (total_docs - relevant_docs) / total_docs
         
         # If more than 50% of documents were irrelevant, fail and fall back to web search
-        checker_result = "fail" if filtered_out_percentage >= 0.5 else "pass"
+        checker_result = "fail" if filtered_out_percentage >= 0.3 else "pass"
         print(f"---FILTERED OUT {filtered_out_percentage*100:.1f}% OF IRRELEVANT DOCUMENTS---")
         print(f"---**{checker_result}**---")
     else:
@@ -949,7 +904,6 @@ workflow.add_node("RelevanceGrader", grade_documents_parallel)  # Async document
 workflow.add_node("AnswerGenerator", answer_generator)          # Generate grounded response
 workflow.add_node("QueryRewriter", query_rewriter)              # Rewrite query if generation fails
 workflow.add_node("ChitterChatter", chitter_chatter)           #  Fallback for unsupported input
-workflow.add_node("QueryRouter", route_question)                #  Routes question after checking if its the same question
 
 # === Add retry tracker nodes ===
 workflow.add_node("HallucinationCheckerFailed", hallucination_checker_tracker)
@@ -959,7 +913,6 @@ workflow.add_node("AnswerVerifierFailed", answer_verifier_tracker)
 workflow.set_conditional_entry_point(
     route_question,
     {
-        "Router": "QueryRouter", 
         "Websearch": "WebSearcher",
         "Vectorstore": "DocumentRetriever",
         "Chitter-Chatter": "ChitterChatter",
