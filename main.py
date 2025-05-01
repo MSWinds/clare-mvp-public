@@ -29,32 +29,43 @@ st.set_page_config(
     layout="centered"
 )
 
-# Main title
-st.title("🤖 CGU Chatbot")
+# Page config
+st.set_page_config(
+    page_title='Clare-AI - TA Assistant',
+    page_icon="clare_pic.jpg",
+    layout="wide"
+)
 
+# Main title
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #4B8BBE;'>
+        🏫🔥 <span style='color:#306998;'>Clare-AI</span> - TA Assistant
+    </h1>
+    """,
+    unsafe_allow_html=True
+)
 # Create the sidebar section
 with st.sidebar:
-    st.title("") # Sidebar title to anchor the app’s purpose
-    
-    # Informational section about the assistant's data sources and usage examples
+    st.image("clare_pic-removebg")  # Clare logo
+    st.markdown("## 🤖 Clare-AI: Your IST 345 Assistant")
     st.markdown("""
-    🎓 CGU Virtual Assistant
+    Welcome to **Clare-AI**, your dedicated assistant for **CGU IST 345.1 – Building Generative AI Applications**.
+    
+    - 👥 **Instructor & TA Contacts**:
+    - **Instructor**: Yan Li – [Yan.Li@cgu.edu](mailto:Yan.Li@cgu.edu)
+    - **TA (Lab Tutoring)**: Kaijie Yu – [Kaijie.Yu@cgu.edu](mailto:Kaijie.Yu@cgu.edu)
+    - **TA (Data Management)**: Yongjia Sun – [Yongjia.Sun@cgu.edu](mailto:Yongjia.Sun@cgu.edu)
 
-    Welcome to Claremont Graduate University's virtual assistant — here to help you navigate everything CGU!
+    I'm here to support your learning journey by:
+    - 📘 **Course Materials**: Access lecture notes, reading lists, and assignment guidelines.
+    - 🧠 **Conceptual Understanding**: Get explanations on RNNs, LSTMs, transformers, and other neural network architectures.
+    - 🛠️ **Practical Questions**: Assistance with coding assignments and model implementation.
+                
+    **Clare-AI is designed to guide your reasoning process rather than provide direct answers**, helping you develop critical thinking skills. By analyzing your questions and responses, Clare-AI offers feedback to improve your understanding and explore new problem-solving strategies.
 
-    Whether you're a prospective student, current student, faculty, or visitor, this chatbot can assist with:
-
-    🎓 Admissions & Programs – Find info on graduate degrees, application deadlines, and how to apply.
-
-    🗓️ Campus Life & Events – Learn about student services, upcoming events, and campus resources.
-
-    💼 Career & Academic Support – Explore career development, academic advising, and more.
-
-    📍 General Info – Get quick answers about departments, locations, contact info, and policies.
-
-    Just ask a question to get started — we're here 24/7 to support your CGU journey.
+    Let's explore the fascinating world of generative AI together!
     """)
-    st.markdown("""----""")
 
     # Refresh button
     if st.button("New Conversation 🔄", use_container_width=True):
@@ -223,11 +234,11 @@ for i, message in enumerate(st.session_state.chat_history):
 # Initial greeting if chat history is empty
 if not st.session_state.chat_history:
     with st.chat_message("ai"):
-        st.write("Hello, I'm your CGU Virtual Assistant. How can I help you today? 😏")
+        st.write("Hello, I'm Clare-AI - TA Assistant. How can I help you today? 😊")
 
 # User Input Processing
 # Chat input
-user_query = st.chat_input("Ask about CGU...")
+user_query = st.chat_input("Ask about Class info...")
 # Process user input
 if user_query is not None and user_query != "":
     st.session_state.chat_history.append({"role": "human", "content": user_query})
