@@ -11,8 +11,49 @@ from functools import partial
 # Traceback is used to print the full traceback of an error
 import traceback 
 
+from sqlalchemy import create_engine, Table, Column, String, Text, MetaData, DateTime
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime, timezone
+import uuid
+import os
+
 # Load environment variables
 load_dotenv()
+
+# DB connection
+connection_string = os.getenv("DB_CONNECTION")
+engine = create_engine(connection_string)
+metadata = MetaData()
+
+# Define table structure
+chat_table = Table(
+    'chat_history', metadata,
+    Column('id', UUID(as_uuid=True), primary_key=True),
+    Column('student_id', Text, nullable=False),
+    Column('user_input', Text, nullable=False),
+    Column('ai_response', Text, nullable=False),
+    Column('timestamp', DateTime(timezone=True), default=datetime.now(timezone.utc))
+)
+
+metadata.create_all(engine)
+
+def store_chat_to_db(student_id, user_input, ai_response):
+    try:
+        with engine.connect() as conn:
+            insert_stmt = chat_table.insert().values(
+                id=uuid.uuid4(),
+                student_id=student_id,
+                user_input=user_input,
+                ai_response=ai_response,
+                timestamp=datetime.now(timezone.utc)
+            )
+            conn.execute(insert_stmt)
+            conn.commit()
+            print(f"Inserted chat for {student_id} at {datetime.utcnow()}")
+    except SQLAlchemyError as e:
+        print(f"Failed to insert chat into DB: {e}")
+
 try:
     client = Client()
     print("LangSmith Client Initialized Successfully.") 
@@ -40,6 +81,7 @@ st.markdown(
 )
 # Create the sidebar section
 with st.sidebar:
+    student_id = st.text_input("📛 Enter Your Student ID", key="student_id")
     st.image("clare_pic-removebg.png")  # Clare logo
     st.markdown("## 🤖 Clare-AI: Your IST 345 Assistant")
     st.markdown("""
@@ -259,6 +301,14 @@ if user_query is not None and user_query != "":
 
         # Add AI message *with* run_id to history before attempting to render feedback
         st.session_state.chat_history.append({"role": "ai", "content": ai_response_content, "run_id": run_id})
+
+        # Find the most recent human-AI pair and insert into DB
+        if len(st.session_state.chat_history) >= 2:
+            last_human_msg = st.session_state.chat_history[-2]
+            last_ai_msg = st.session_state.chat_history[-1]
+
+            if last_human_msg["role"] == "human" and last_ai_msg["role"] == "ai":
+                store_chat_to_db(st.session_state.get("student_id", "unknown"), last_human_msg["content"], last_ai_msg["content"])
 
         # Render feedback widget only if run_id was successfully obtained
         if run_id:
