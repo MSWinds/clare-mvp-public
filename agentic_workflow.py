@@ -26,6 +26,23 @@ from langchain_community.tools.tavily_search import TavilySearchResults
 # # Import the `trace` decorator from LangSmith to enable tracing of some individual customized function calls and metadata for observability/debugging.
 # from langsmith import trace
 
+from sqlalchemy import create_engine, text, Table, Column, MetaData, UUID, Text, DateTime
+from datetime import datetime, timezone
+import uuid
+
+# --- table structure ---
+current_student_id = "123456"
+metadata = MetaData()
+chat_table = Table(
+    'chat_history', metadata,
+    Column('id', UUID(as_uuid=True), primary_key=True, default=uuid.uuid4), # Added default for clarity
+    Column('student_id', Text, nullable=False),
+    Column('user_input', Text, nullable=False),
+    Column('ai_response', Text, nullable=False),
+    Column('timestamp', DateTime(timezone=True), default=datetime.now(timezone.utc))
+)
+
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -120,7 +137,7 @@ This vectorstore contains comprehensive course materials for IST 345 Generative 
 including the syllabus detailing contact information course objectives, learning outcomes, and grading policies; 
 lab instructions outlining set ups, practical exercises and assignments; prerequisites clearly specifying prior required knowledge; 
 class discussion summaries emphasizing key topics and textbook concepts; 
-and notes covering lectures and foundational AI concepts.
+and notes covering technology and foundational AI concepts.
 """
 
 # Define the topical scope of the system
@@ -235,14 +252,17 @@ Your goal is to foster independent, critical thinking by prompting reflection an
 Use the following information to help answer the question:
 {context}
 
+**Previous Interaction Summary (Memory)**: 
+{chat_history_context} 
+
 ****User Question**:
 {question}
                                                                 
 ---
                                                                 
 **Instructions**:
-1. Base your answer primarily on the context provided.
-2. If the answer is **not present** in the context, say so explicitly.
+1. Base your answer primarily on the context and memory summary provided.
+2. If the answer is **not present** in the context or memory, say so explicitly.
 3. Keep the answer **concise**, **accurate**, and **focused** on the question.
 4. At the end, include a **reference section**:
     - For book-based sources, use **APA-style citations** if possible.
@@ -476,11 +496,12 @@ def document_retriever(state):
 # ------------------------ Answer Generator Node ------------------------
 def answer_generator(state):
     """
-    Generates an answer based on the retrieved documents and user question.
+    Generates an answer based on the retrieved documents, user question, and a database summary (memory).
 
     This node prepares a prompt that includes:
     - The original or rewritten user question
     - A list of relevant documents (from vectorstore or web search)
+    - A summary retrieved from a PostgreSQL database (acting as memory)
     
     It invokes the main LLM to synthesize a concise and grounded response, returning the result
     for use in later hallucination and usefulness checks.
@@ -502,6 +523,55 @@ def answer_generator(state):
     else:
         question = state["question"]
     
+    # --- Database Memory Retrieval ---
+    chat_history_context = "No relevant chat history found." # Default value
+    history_limit = 3 # How many past interactions to retrieve
+
+    try:
+        # Reuse the connection string defined earlier
+        engine = create_engine(connection_string)
+        with engine.connect() as connection:
+
+            # Query to get the most recent interactions for a specific student
+            query = text(f"""
+                SELECT user_input, ai_response, timestamp
+                FROM chat_history
+                WHERE student_id = :student_id
+                ORDER BY timestamp DESC
+                LIMIT :limit
+            """) # Using f-string here only for LIMIT, safer with :limit binding
+
+            result = connection.execute(
+                query,
+                {"student_id": current_student_id, "limit": history_limit}
+            ).fetchall() # Use fetchall() to get multiple rows
+
+            if result:
+                # Process the results (list of tuples/rows) into a usable format.
+                # Example: format as a string, oldest retrieved message first.
+                # The result is newest first, so reverse it for chronological order.
+                history_lines = []
+                for row in reversed(result):
+                    # Assuming row is a SQLAlchemy Row object or similar tuple
+                    user_input, ai_response, timestamp = row
+                    # Optional: format timestamp nicely
+                    ts_formatted = timestamp.strftime('%Y-%m-%d %H:%M:%S %Z')
+                    history_lines.append(f"[{ts_formatted}] User: {user_input}")
+                    history_lines.append(f"[{ts_formatted}] AI: {ai_response}")
+
+                chat_history_context = "\n".join(history_lines)
+                print(f"--- Retrieved recent {len(result)} interactions from DB history ---")
+                # print(chat_history_context) # Optional: print the retrieved history
+
+            else:
+                print(f"--- No chat history found in DB for student_id: {current_student_id} ---")
+
+    except Exception as e:
+        print(f"--- Error connecting to or querying DB history: {e} ---")
+        # Keep the default "No relevant chat history found." message
+    # --- End Database Memory Retrieval ---
+
+
      # Ensure all documents are LangChain Document objects (convert from dicts if needed)
     documents = [
         Document(metadata=doc["metadata"], page_content=doc["page_content"])
@@ -512,7 +582,8 @@ def answer_generator(state):
     # Format the prompt for the answer generator
     answer_generator_prompt = answer_generator_prompt_template.format(
         context=documents,
-        question=question
+        question=question,
+        chat_history_context=chat_history_context
     )
 
     # Call the LLM to generate the answer
