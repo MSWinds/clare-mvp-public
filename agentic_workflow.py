@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 import uuid
 
 # --- table structure ---
-current_student_id = "123456"
+# current_student_id = "123456"
 metadata = MetaData()
 chat_table = Table(
     'chat_history', metadata,
@@ -426,6 +426,7 @@ class GraphState(TypedDict):
     answer_verifier_attempts: int        # Number of times answer verifier has been triggered
     documents: List[str]                 # List of retrieved documents from vectorstore or web search
     checker_result: str                  # Result of document relevance check: 'pass' or 'fail'
+    student_id: str                      # Student ID for database tracking
 
 # ------------------------ Document Retriever Node ------------------------
 def document_retriever(state):
@@ -541,9 +542,11 @@ def answer_generator(state):
                 LIMIT :limit
             """) # Using f-string here only for LIMIT, safer with :limit binding
 
+            student_id = state["student_id"]
+
             result = connection.execute(
                 query,
-                {"student_id": current_student_id, "limit": history_limit}
+                {"student_id": student_id, "limit": history_limit}
             ).fetchall() # Use fetchall() to get multiple rows
 
             if result:
@@ -564,7 +567,7 @@ def answer_generator(state):
                 # print(chat_history_context) # Optional: print the retrieved history
 
             else:
-                print(f"--- No chat history found in DB for student_id: {current_student_id} ---")
+                print(f"--- No chat history found in DB for student_id: {student_id} ---")
 
     except Exception as e:
         print(f"--- Error connecting to or querying DB history: {e} ---")

@@ -177,12 +177,15 @@ async def get_drucker_response_with_run_id(user_input):
     # Default response in case the graph doesn't yield any usable output
     ai_response_content = "I'm sorry, I couldn't find a good answer. Could you try rephrasing?"
 
+    student_id = st.session_state.get("student_id", "unknown")
+
     # Collect trace info from LangSmith 
     with collect_runs() as cb:
         try:
             # Stream values emitted by the graph
             async for event in graph.astream(
-                {"question": user_input}, 
+                {"question": user_input,
+                 "student_id": student_id}, 
                 stream_mode="values", 
                 config={"tags": ["streamlit_app_call"]}
                 ):
