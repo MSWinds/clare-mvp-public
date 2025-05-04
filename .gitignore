@@ -4,3 +4,4 @@
 # Ignore all .gitignore files in any directory
 .history/
 
+__pycache__/
