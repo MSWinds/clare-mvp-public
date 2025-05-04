@@ -1,6 +1,6 @@
 # Overall Nodes Design
 
-![Imgur](https://imgur.com/x3IEq6K.png)
+![Imgur](https://imgur.com/7xH47Kn.png)
 
 ## Initial Pipline
 
