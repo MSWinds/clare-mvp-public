@@ -43,14 +43,14 @@ os.environ["LANGCHAIN_PROJECT"] = "GenAI-Class-Final"
 
 # Configure Database Connection
 # Use the same shared table as from the last lab
-shared_connection_string = make_url(connection_string)\
-    .set(database="GenAI_Spring25_Shengjie_Qian_db").render_as_string(hide_password=False) # Leave password visible for local testing
+# shared_connection_string = make_url(connection_string)\
+#     .set(database="GenAI_Spring25_Shengjie_Qian_db").render_as_string(hide_password=False) # Leave password visible for local testing
 
 # Initialize the embedding model
 embedding_model = OpenAIEmbeddings(model="text-embedding-3-large")
 print("-------- new Conversation ---------")
 # Quick check environment variables
-if not openai_api_key or not shared_connection_string or not tavily_api_key or not embedding_model or not langsmith_api_key:
+if not openai_api_key or not connection_string or not tavily_api_key or not embedding_model or not langsmith_api_key:
     print(f"Error: Missing one or more required environment variables") # If so, print out your key to check
 else:
     print("All environment variables loaded successfully")
@@ -74,7 +74,7 @@ llm_gpt_mini = ChatOpenAI(
 book_data_vector_store = PGVector(
     embeddings=embedding_model,   
     collection_name="final_data",   # Name of the collection/table in the vector DB
-    connection=shared_connection_string, # Use shared DB connection from earlier
+    connection=connection_string, # Use shared DB connection from earlier
     use_jsonb=True, 
 )
 
