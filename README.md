@@ -56,3 +56,27 @@
 - ✅ Hallucination Checker
 - ✅ Answer Verifier
 - ✅ Query Rewriter
+
+Student profile exmaple:
+
+Here is the record for student "Alex Chen":
+
+Subhect:
+- Homework 1: Score 92, On-time, Comment: "Thorough understanding"
+- Homework 2: Score 78, Late submission, Comment: "Partial misunderstanding on key concept"
+
+Quizzes:
+- Quiz 1: 6/10, Mistakes: "Formula confusion on Q2"
+- Quiz 2: 8/10, Mistakes: "Missed definition in Q3"
+
+Class Interactions:
+- Asked 2 questions during sessions
+- No forum posts
+
+Generate a 3–4 sentence summary for this student.
+
+Example Summary:
+Alex consistently completes assignments with generally good understanding, though sometimes struggles with key concepts, as seen in Homework 2. 
+They performed reasonably well in quizzes, with recurring issues in concept clarity, especially around formula application. 
+They participate during live sessions by asking questions but are inactive on the course forum. 
+Encourage deeper review of core definitions and continued engagement in class discussions.
