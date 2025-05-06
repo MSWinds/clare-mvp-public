@@ -66,7 +66,7 @@ handbook_data_dict_py_cleaned = {
 }
 
 
-pprint(handbook_data_dict_py_cleaned['notes1'][0].metadata)
+# pprint(handbook_data_dict_py_cleaned['notes1'][0].metadata)
 
 from langchain.schema import Document
 from langchain_community.document_transformers.openai_functions import create_metadata_tagger
@@ -105,7 +105,7 @@ for doc_key, item_list in handbook_data_dict_py_cleaned.items():
     except Exception as e:
         print(f"  - Error processing document {doc_key}: {e}")
         # Handle any errors that occur during tagging for this document
-pprint(handbook_data_dict_py_cleaned['notes1'][0].metadata)
+# pprint(handbook_data_dict_py_cleaned['notes1'][0].metadata)
 
 # Document-Specific Splitting
 from langchain_core.documents import Document
