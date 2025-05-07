@@ -37,8 +37,7 @@ chat_table = Table(
     'chat_history', metadata,
     Column('id', UUID(as_uuid=True), primary_key=True, default=uuid.uuid4), # Added default for clarity
     Column('student_id', Text, nullable=False),
-    Column('user_input', Text, nullable=False),
-    Column('ai_response', Text, nullable=False),
+    Column('profile_summary', Text, nullable=False),
     Column('timestamp', DateTime(timezone=True), default=datetime.now(timezone.utc))
 )
 
@@ -237,7 +236,6 @@ The "binary_score" should be "pass" or "fail" indicating relevance.
 answer_generator_prompt_template = PromptTemplate.from_template("""
 You are personalized Teaching Assitant using **Context** to help answer questions about the Generative AI course operating in Learning Mode, designed to encourage independent thinking and deeper comprehension.
 
-
 Based on the **Student Learning Profile** tailor your response to the student's needs, focusing on their learning style, strengths, and areas for improvement.
                                                                
 Use supportive and encouraging language to help the student articulate their thoughts and reasoning.
@@ -269,10 +267,8 @@ Use the following information to help answer the question:
 ****User Question**:
 {question}
                                                                
-**Student Learning Profile**: Alex consistently completes assignments with generally good understanding, though sometimes struggles with key concepts, as seen in Homework 2. 
-They performed reasonably well in quizzes, with recurring issues in concept clarity, especially around formula application. 
-They participate during live sessions by asking questions but are inactive on the course forum. 
-Encourage deeper review of core definitions and continued engagement in class discussions.
+**Student Learning Profile**: 
+{student_profile}
                                                                
 ---
                                                                
@@ -283,7 +279,7 @@ Encourage deeper review of core definitions and continued engagement in class di
 4. At the end, include a **reference section**:
     - For document-based sources, use **APA-style citations** if possible.
     - For web-based sources, include **page title and URL**.
-5. Avoid repeating student learning profile information in the answer.
+5. DO NOT reapeat student learning profile information in the answer.
 ---
                                                                
 **Answer**:
@@ -544,7 +540,7 @@ def answer_generator(state):
     
     # --- Database Memory Retrieval ---
     chat_history_context = "No relevant chat history found." # Default value
-    history_limit = 3 # How many past interactions to retrieve
+    history_limit = 1 # How many past interactions to retrieve
 
     try:
         # Reuse the connection string defined earlier
@@ -553,8 +549,8 @@ def answer_generator(state):
 
             # Query to get the most recent interactions for a specific student
             query = text(f"""
-                SELECT user_input, ai_response, timestamp
-                FROM chat_history
+                SELECT profile_summary, timestamp
+                FROM student_profiles
                 WHERE student_id = :student_id
                 ORDER BY timestamp DESC
                 LIMIT :limit
@@ -565,24 +561,11 @@ def answer_generator(state):
             result = connection.execute(
                 query,
                 {"student_id": student_id, "limit": history_limit}
-            ).fetchall() # Use fetchall() to get multiple rows
+            )
 
             if result:
-                # Process the results (list of tuples/rows) into a usable format.
-                # Example: format as a string, oldest retrieved message first.
-                # The result is newest first, so reverse it for chronological order.
-                history_lines = []
-                for row in reversed(result):
-                    # Assuming row is a SQLAlchemy Row object or similar tuple
-                    user_input, ai_response, timestamp = row
-                    # Optional: format timestamp nicely
-                    ts_formatted = timestamp.strftime('%Y-%m-%d %H:%M:%S %Z')
-                    history_lines.append(f"[{ts_formatted}] User: {user_input}")
-                    history_lines.append(f"[{ts_formatted}] AI: {ai_response}")
-
-                chat_history_context = "\n".join(history_lines)
-                print(f"--- Retrieved recent {len(result)} interactions from DB history ---")
-                # print(chat_history_context) # Optional: print the retrieved history
+                print(f"--- Retrieved recent student profile from DB history ---")
+                print(chat_history_context) 
 
             else:
                 print(f"--- No chat history found in DB for student_id: {student_id} ---")
@@ -604,7 +587,7 @@ def answer_generator(state):
     answer_generator_prompt = answer_generator_prompt_template.format(
         context=documents,
         question=question,
-        #chat_history_context=chat_history_context
+        chat_history_context=chat_history_context
     )
 
     # Call the LLM to generate the answer
