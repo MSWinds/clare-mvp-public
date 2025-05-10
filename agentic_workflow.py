@@ -268,7 +268,7 @@ Use the following information to help answer the question:
 {question}
                                                                
 **Student Learning Profile**: 
-{student_profile}
+{chat_history_context}
                                                                
 ---
                                                                
