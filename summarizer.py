@@ -45,22 +45,27 @@ except Exception as e:
     print(f"Error creating tables: {e}")
 
 # Initialize LLM
-llm_gpt = ChatOpenAI(model="gpt-4o", temperature=0.5, api_key=openai_api_key)
+llm_gpt = ChatOpenAI(model="gpt-4o", temperature=0.3, api_key=openai_api_key)
 
 # Prompt template for profiling
 gen_profile_prompt = PromptTemplate(
     input_variables=["chat_history"],
-    template=(
-        "You are an educational analyst creating a student profile."
-        "Based on the following chat history between a student and an AI about a generative AI course, "
-        "generate a comprehensive student profile summary. Focus on:\n"
-        "- Student's overall understanding level.\n"
-        "- Key concepts they grasped or struggled with.\n"
-        "- Specific questions or topics they focused on.\n"
-        "- Potential strengths and areas for improvement.\n"
-        "- Actionable learning recommendations (e.g., topics to review, exercises to try).\n\n"
-        "Format the summary clearly with headings for each section.\n\n"
-        "Chat History:\n{chat_history}"
+    template=("""
+                You are an educational analyst reviewing a conversation between a student and an AI about a Generative AI course.
+                Your task is to:
+                Evaluate the student’s overall level of understanding.
+                Identify key concepts the student has grasped well and those they appear to struggle with.
+                Highlight any recurring topics, specific questions, or areas of particular interest or confusion.
+                Then, in no more than three sentences, provide clear and actionable recommendations for an AI teaching assistant. 
+                These recommendations should help the assistant personalize its support based on the student’s current knowledge level, learning gaps, and communication style.
+                The AI teaching assistant is designed to guide the student’s reasoning process, not simply provide answers. It should foster critical thinking, 
+                encourage deeper exploration, and use the student’s conversation history to adopt a tone and approach that feel personally tailored and supportive.
+                
+              **Chat History**:
+                {chat_history}
+
+              """
+        
     )
 )
 
