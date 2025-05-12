@@ -74,7 +74,7 @@ st.set_page_config(
 st.markdown(
     """
     <h1 style='text-align: center; color: #4B8BBE;'>
-        🏫🔥 <span style='color:#306998;'>Clare-AI</span> - TA Assistant
+        <span style='color:#306998;'>Clare-AI</span> - TA Assistant
     </h1>
     """,
     unsafe_allow_html=True
