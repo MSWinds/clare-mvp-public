@@ -81,7 +81,11 @@ st.markdown(
 )
 # Create the sidebar section
 with st.sidebar:
-    student_id = st.text_input("📛 Enter Your Student ID", key="student_id")
+    if "student_id" not in st.session_state:
+        st.session_state["student_id"] = ""
+
+    st.session_state["student_id"] = st.text_input("📛 Enter Your Student ID", value=st.session_state["student_id"])
+    # student_id = st.text_input("📛 Enter Your Student ID", key="student_id")
     st.image("clare_pic-removebg.png")  # Clare logo
     st.markdown("## 🤖 Clare-AI: Your IST 345 Assistant")
     st.markdown("""

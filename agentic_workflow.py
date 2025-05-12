@@ -551,21 +551,20 @@ def answer_generator(state):
             query = text(f"""
                 SELECT profile_summary, timestamp
                 FROM student_profiles
-                WHERE student_id = :student_id
+                WHERE student_id = '123456'
                 ORDER BY timestamp DESC
-                LIMIT :limit
+                LIMIT 1;
             """) # Using f-string here only for LIMIT, safer with :limit binding
 
             student_id = state["student_id"]
 
             result = connection.execute(
-                query,
-                {"student_id": student_id, "limit": history_limit}
-            )
+                query
+            ).fetchone()[0] # Fetch the most recent record
 
             if result:
                 print(f"--- Retrieved recent student profile from DB history ---")
-                print(chat_history_context) 
+                print(result) 
 
             else:
                 print(f"--- No chat history found in DB for student_id: {student_id} ---")
@@ -587,7 +586,7 @@ def answer_generator(state):
     answer_generator_prompt = answer_generator_prompt_template.format(
         context=documents,
         question=question,
-        chat_history_context=chat_history_context
+        chat_history_context=result
     )
 
     # Call the LLM to generate the answer
