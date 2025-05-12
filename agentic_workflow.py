@@ -556,7 +556,7 @@ def answer_generator(state):
                 LIMIT 1;
             """) # Using f-string here only for LIMIT, safer with :limit binding
 
-            student_id = student_id = state.get("student_id", "unknown")
+            student_id = state.get("student_id", "unknown")
 
             result = connection.execute(query, {"student_id": state["student_id"]}).fetchone()
 
