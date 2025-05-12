@@ -141,7 +141,7 @@ This vector store contains comprehensive materials for a Generative AI course, i
 """
 
 # Define the topical scope of the system
-relevant_scope = """Anything related to the Generative AI course. 
+relevant_scope = """Anything related to the Generative AI class. 
 It supports learning and engagement within the boundaries of assignments, projects, lectures, discussions, labs, and academic expectations. 
 It also helps students understand the Gen AI concepts, course material, clarify doubts, and navigate academic policies."""
 
@@ -211,7 +211,7 @@ def reciprocal_rank_fusion(results, k=60):
 # Agent: Relevance Grader
 # Define the relevance grader prompt
 relevance_grader_prompt_template = PromptTemplate.from_template("""
-You are a relevance grader evaluating whether a retrieved document is helpful in answering a user question about the IST 345 course at Claremont Graduate University.
+You are a relevance grader evaluating whether a retrieved document is helpful in answering a user question about the Generative AI class and policies.
 
 ---
 
@@ -224,7 +224,7 @@ You are a relevance grader evaluating whether a retrieved document is helpful in
 ---
 
 **Your Task**:                                                           
-Carefully and objectively assess whether the document contains any **keyword overlap**, **semantic relevance**, or **contextual alignment** with the user's question related to IST 345, its assignments, labs, policies, or related course material.
+Carefully and objectively assess whether the document contains any **keyword overlap**, **semantic relevance**, or **contextual alignment** with the user's question related to the gen AI class, its assignments, labs, policies, or related course material.
 You do NOT need a complete answer—any partial but contextually relevant information that could aid the user is enough to pass.
 
 Return your decision as a JSON object with twith keys: "binary_score". 
@@ -317,13 +317,13 @@ Return a JSON object with keys: "binary_score" and "explanation".
 # Agent: Answer Verifier
 # Define the answer verifier prompt
 answer_verifier_prompt_template = PromptTemplate.from_template("""
-You are an AI grader evaluating whether the AI-generated answer accurately and meaningfully addresses a user question about IST 345 course Generative AI at CGU or its related academic content.
+You are an AI grader evaluating whether the AI-generated answer accurately and meaningfully addresses a user question about Generative AI class or its related academic content.
 
 ---
 
 **Grading Criteria**:
-- **Pass**: The answer is factually accurate, relevant to the question, and pertains specifically to IST 345 course—even if it includes additional helpful context.
-- **Fail**: The answer is off-topic, incorrect, vague, or refers to other institutions, courses, or irrelevant content not associated with IST 345 course.
+- **Pass**: The answer is factually accurate, relevant to the question, and pertains specifically to Generative AI class, even if it includes additional helpful context.
+- **Fail**: The answer is off-topic, incorrect, vague, or refers to other institutions, courses, or irrelevant content not associated with Generative AI course.
 
 ---
 
