@@ -132,18 +132,18 @@ Analyze the user's question. Return a JSON object with one key `"Datasource"` an
 
 # Define a summary of what's in the vectorstore
 vectorstore_content_summary = """
-This vectorstore contains comprehensive course materials for IST 345 Generative AI, 
-including the syllabus detailing contact information course objectives, learning outcomes, and grading policies; 
-lab instructions outlining set ups, practical exercises and assignments; prerequisites clearly specifying prior required knowledge; 
-class discussion summaries emphasizing key topics and textbook concepts; 
-and notes covering technology and foundational AI concepts.
+This vector store contains comprehensive materials for a Generative AI course, including:
+1: Syllabus: Details on instructor contact, course objectives, and learning outcomes.
+2: Lab Instructions: Step-by-step setup guides, practical exercises, and assignments.
+3: Course Reading Materials: Assigned textbook chapters and supplementary resources.
+4: Class Discussion Summaries: Highlights of key discussion topics and textbook concepts.
+5: Course Notes: Coverage of core technologies and foundational AI principles.
 """
 
 # Define the topical scope of the system
-relevant_scope = """Exclusively to the IST 345 Generative AI course of Claremont Graduate University. 
-It supports learning and engagement strictly within the boundaries of the course’s content, 
-including its assignments, projects, lectures, discussions, labs, and academic expectations. 
-It **WILL NOT** provide help unrelated to IST 345 or respond outside its designated educational domain."""
+relevant_scope = """Anything related to the Generative AI course. 
+It supports learning and engagement within the boundaries of assignments, projects, lectures, discussions, labs, and academic expectations. 
+It also helps students understand the Gen AI concepts, course material, clarify doubts, and navigate academic policies."""
 
 # Define the multi-query generation prompt
 multi_query_generation_prompt = PromptTemplate.from_template("""
