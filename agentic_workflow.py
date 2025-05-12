@@ -551,16 +551,18 @@ def answer_generator(state):
             query = text(f"""
                 SELECT profile_summary, timestamp
                 FROM student_profiles
-                WHERE student_id = '123456'
+                WHERE student_id = :student_id
                 ORDER BY timestamp DESC
                 LIMIT 1;
             """) # Using f-string here only for LIMIT, safer with :limit binding
 
-            student_id = state["student_id"]
+            student_id = student_id = state.get("student_id", "unknown")
 
-            result = connection.execute(
-                query
-            ).fetchone()[0] # Fetch the most recent record
+            result = connection.execute(query, {"student_id": state["student_id"]}).fetchone()
+
+            # result = connection.execute(
+            #     query
+            # ).fetchone()[0] # Fetch the most recent record
 
             if result:
                 print(f"--- Retrieved recent student profile from DB history ---")
