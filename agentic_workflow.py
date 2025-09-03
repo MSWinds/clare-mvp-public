@@ -52,8 +52,8 @@ tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
 
-# Enable LangSmith tracing for observability/debugging
-os.environ["LANGCHAIN_TRACING"] = "true"
+# Enable LangSmith tracing for observability/debugging (V2 is the current version)
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
 # Set the project name for LangSmith, it will create a new project if it doesn't exist
 os.environ["LANGCHAIN_PROJECT"] = "GenAI-Class-Final"
 
@@ -507,6 +507,8 @@ def document_retriever(state):
 
     return {"documents": formatted_doc_results}
 
+# Note: Complex profile conversion function removed for MVP simplicity
+# Text summaries are used directly from the database
 
 # ------------------------ Answer Generator Node ------------------------
 def answer_generator(state):
@@ -538,43 +540,29 @@ def answer_generator(state):
     else:
         question = state["question"]
     
-    # --- Database Memory Retrieval ---
-    chat_history_context = "No relevant chat history found." # Default value
-    history_limit = 1 # How many past interactions to retrieve
-
+    # --- Profile Context Retrieval (Text Summary for MVP) ---
+    chat_history_context = "No profile context available."
+    
     try:
-        # Reuse the connection string defined earlier
-        engine = create_engine(connection_string)
-        with engine.connect() as connection:
-
-            # Query to get the most recent interactions for a specific student
-            query = text(f"""
-                SELECT profile_summary, timestamp
-                FROM student_profiles
-                WHERE student_id = :student_id
-                ORDER BY timestamp DESC
-                LIMIT 1;
-            """) # Using f-string here only for LIMIT, safer with :limit binding
-
-            student_id = state.get("student_id", "unknown")
-
-            result = connection.execute(query, {"student_id": state["student_id"]}).fetchone()
-
-            # result = connection.execute(
-            #     query
-            # ).fetchone()[0] # Fetch the most recent record
-
-            if result:
-                print(f"--- Retrieved recent student profile from DB history ---")
-                print(result) 
-
-            else:
-                print(f"--- No chat history found in DB for student_id: {student_id} ---")
+        # Import the profile analyzer function
+        from profile_analyzer import get_profile_text_summary
+        
+        student_id = state.get("student_id", "unknown")
+        print(f"--- Retrieving learner profile for student: {student_id} ---")
+        
+        # Get text summary directly (MVP approach)
+        profile_text = get_profile_text_summary(student_id)
+        
+        if profile_text:
+            chat_history_context = f"Student Learning Profile:\n{profile_text}"
+            print("--- Retrieved learner profile text summary ---")
+        else:
+            print(f"--- No profile found for student_id: {student_id} ---")
 
     except Exception as e:
-        print(f"--- Error connecting to or querying DB history: {e} ---")
-        # Keep the default "No relevant chat history found." message
-    # --- End Database Memory Retrieval ---
+        print(f"--- Error retrieving learner profile: {e} ---")
+        # Keep the default "No profile context available." message
+    # --- End Profile Context Retrieval ---
 
 
      # Ensure all documents are LangChain Document objects (convert from dicts if needed)
@@ -588,7 +576,7 @@ def answer_generator(state):
     answer_generator_prompt = answer_generator_prompt_template.format(
         context=documents,
         question=question,
-        chat_history_context=result
+        chat_history_context=chat_history_context
     )
 
     # Call the LLM to generate the answer
