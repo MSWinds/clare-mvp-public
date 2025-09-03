@@ -5,3 +5,5 @@
 .history/
 
 __pycache__/
+
+.vscode/
