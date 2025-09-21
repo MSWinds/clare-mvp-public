@@ -21,7 +21,7 @@ import asyncio # Support asynchronous execution for parallel LLM calls
 from langgraph.graph import StateGraph, END # LangGraph tools to define stateful workflows 
 
 # Web Search Tool
-from langchain_tavily import TavilySearchResults
+from langchain_tavily import TavilySearch
 
 # # Import the `trace` decorator from LangSmith to enable tracing of some individual customized function calls and metadata for observability/debugging.
 # from langsmith import trace
@@ -422,7 +422,7 @@ TA: Yongjia.Sun@cgu.edu (for data management)"
 """)
 
 # Define the web search tool
-web_search_tool = TavilySearchResults(
+web_search_tool = TavilySearch(
     max_results=5,
     search_depth="advanced",        # Uses advanced search depth for more accurate results
     include_answer=True,            # Include a short answer to original query in the search results.
