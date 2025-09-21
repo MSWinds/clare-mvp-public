@@ -1,6 +1,13 @@
 import os
 import uuid
-from dotenv import load_dotenv
+
+# Load environment variables (only for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production (Streamlit Cloud)
+    pass
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, text, Table, Column, MetaData, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -11,8 +18,6 @@ from langgraph.graph import StateGraph, END
 from typing import TypedDict
 import asyncio # Import asyncio
 
-# Load environment variables
-load_dotenv()
 
 # --- Environment Setup ---
 connection_string = os.getenv("DATABASE_URL")

@@ -4,14 +4,18 @@ Centralizes all database connections, environment variables, and table definitio
 """
 
 import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, Table, Column, String, Text, MetaData, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from datetime import datetime, timezone
 import uuid
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (only for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production (Streamlit Cloud)
+    pass
 
 # Environment Variables
 DATABASE_URL = os.getenv("DATABASE_URL")

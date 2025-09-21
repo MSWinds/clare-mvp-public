@@ -6,7 +6,14 @@ Refactored from summarizer.py to implement structured profile updates using evid
 import os
 import uuid
 import json
-from dotenv import load_dotenv
+
+# Load environment variables (only for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production (Streamlit Cloud)
+    pass
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, text, Table, Column, MetaData, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB

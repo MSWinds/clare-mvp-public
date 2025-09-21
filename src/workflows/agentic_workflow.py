@@ -1,5 +1,12 @@
 #  Environment Configuration
-from dotenv import load_dotenv  
+# Load environment variables (only for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production (Streamlit Cloud)
+    pass
+
 import os
 from sqlalchemy.engine.url import make_url # Used to parse and construct database URLs
 from langchain_postgres.vectorstores import PGVector # Integration with Postgres + pgvector for vector storage
