@@ -21,7 +21,7 @@ import asyncio # Support asynchronous execution for parallel LLM calls
 from langgraph.graph import StateGraph, END # LangGraph tools to define stateful workflows 
 
 # Web Search Tool
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearchResults
 
 # # Import the `trace` decorator from LangSmith to enable tracing of some individual customized function calls and metadata for observability/debugging.
 # from langsmith import trace
@@ -42,20 +42,29 @@ chat_table = Table(
 )
 
 
-# Load environment variables from .env file
-load_dotenv()
+# Import configuration
+from src.database.config import (
+    OPENAI_API_KEY as openai_api_key,
+    TAVILY_API_KEY as tavily_api_key,
+    LANGSMITH_API_KEY as langsmith_api_key,
+    get_connection_string,
+    setup_langsmith
+)
+# Import prompts
+from src.prompts.system_prompts import (
+    query_router_prompt_template,
+    multi_query_generation_prompt,
+    relevance_grader_prompt_template,
+    answer_generator_prompt_template,
+    hallucination_checker_prompt_template,
+    answer_verifier_prompt_template,
+    query_rewriter_prompt_template,
+    chitterchatter_prompt_template
+)
 
-# Access the environment variable
-openai_api_key = os.getenv("OPENAI_API_KEY")
-connection_string = os.getenv("DATABASE_URL")
-tavily_api_key = os.getenv("TAVILY_API_KEY")
-
-langsmith_api_key = os.getenv("LANGSMITH_API_KEY")
-
-# Enable LangSmith tracing for observability/debugging (V2 is the current version)
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-# Set the project name for LangSmith, it will create a new project if it doesn't exist
-os.environ["LANGCHAIN_PROJECT"] = "GenAI-Class-Final"
+# Set up configuration
+connection_string = get_connection_string()
+setup_langsmith()
 
 # Configure Database Connection
 # Use the same shared table as from the last lab

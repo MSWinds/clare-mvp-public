@@ -1,0 +1,1 @@
+from sqlalchemy import create_engine, text; import os; from dotenv import load_dotenv; load_dotenv(); engine = create_engine(os.getenv("DATABASE_URL")); print("✅ Database connection successful!") if engine.connect().execute(text("SELECT 1")).scalar() == 1 else print("❌ Database connection failed!")
