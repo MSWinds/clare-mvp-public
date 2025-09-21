@@ -7,12 +7,17 @@ import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
+
+# Load environment variables (only for local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available in production (Streamlit Cloud)
+    pass
+
 from profile_analyzer import analyze_and_update_profile
 import json
-
-# Load environment
-load_dotenv()
 
 # Database connection
 connection_string = os.getenv("DATABASE_URL")
