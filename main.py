@@ -25,7 +25,7 @@ load_dotenv()
 # DB connection - moved to lazy initialization
 @st.cache_resource
 def init_database():
-    connection_string = os.getenv("DB_CONNECTION")
+    connection_string = os.getenv("DATABASE_URL")
     engine = create_engine(connection_string)
     metadata = MetaData()
     

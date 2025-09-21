@@ -47,7 +47,7 @@ load_dotenv()
 
 # Access the environment variable
 openai_api_key = os.getenv("OPENAI_API_KEY")
-connection_string = os.getenv("DB_CONNECTION")
+connection_string = os.getenv("DATABASE_URL")
 tavily_api_key = os.getenv("TAVILY_API_KEY")
 
 langsmith_api_key = os.getenv("LANGSMITH_API_KEY")

@@ -15,9 +15,9 @@ import json
 load_dotenv()
 
 # Database connection
-connection_string = os.getenv("DB_CONNECTION")
+connection_string = os.getenv("DATABASE_URL")
 if not connection_string:
-    raise ValueError("DB_CONNECTION environment variable not set.")
+    raise ValueError("DATABASE_URL environment variable not set.")
 
 engine = create_engine(connection_string)
 

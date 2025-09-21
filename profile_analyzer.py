@@ -23,11 +23,11 @@ from profile_schemas import LearnerProfile, EvidenceItem, EvidenceCollection
 load_dotenv()
 
 # --- Environment Setup ---
-connection_string = os.getenv("DB_CONNECTION")
+connection_string = os.getenv("DATABASE_URL")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
 if not connection_string:
-    raise ValueError("DB_CONNECTION environment variable not set.")
+    raise ValueError("DATABASE_URL environment variable not set.")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
 
