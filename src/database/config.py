@@ -4,7 +4,7 @@ Centralizes all database connections, environment variables, and table definitio
 """
 
 import os
-from sqlalchemy import create_engine, Table, Column, String, Text, MetaData, DateTime
+from sqlalchemy import create_engine, Table, Column, String, Text, MetaData, DateTime, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 from datetime import datetime, timezone
 import uuid
@@ -70,6 +70,9 @@ student_profiles_table = Table(
     Column('id', PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     Column('student_id', String, nullable=False, index=True),
     Column('profile_summary', JSONB, nullable=False, default={}),
+    Column('is_profile_complete', Boolean, nullable=False, default=False),
+    Column('last_login', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)),
+    Column('profile_version', Integer, nullable=False, default=1),
     Column('timestamp', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 )
 

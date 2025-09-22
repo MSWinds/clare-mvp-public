@@ -16,7 +16,7 @@ except ImportError:
     # dotenv not available in production (Streamlit Cloud)
     pass
 
-from profile_analyzer import analyze_and_update_profile
+from src.workflows.profile_analyzer import analyze_and_update_profile
 import json
 
 # Database connection

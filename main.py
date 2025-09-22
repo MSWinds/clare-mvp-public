@@ -17,7 +17,11 @@ from src.auth.authentication import (
     is_user_signed_in,
     get_current_student_name,
     get_current_student_id,
-    store_chat_to_db
+    store_chat_to_db,
+    check_user_status,
+    update_last_login,
+    mark_profile_complete,
+    show_signin_form
 )
 
 # Import feedback functionality
@@ -63,65 +67,109 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Sidebar for Profile Management
+# Sidebar for Profile Management (condensed with expanders and reset)
 with st.sidebar:
     st.image("clare_pic-removebg.png", width=200)
-    st.markdown("## 🤖 Clare-AI: Your IST 345 Assistant")
+    st.markdown("## 🤖 Clare-AI Assistant")
 
-    # Authentication Section
-    if not is_user_signed_in():
-        if st.button("🔑 Sign In", use_container_width=True, type="primary"):
-            handle_sign_in()
-        st.markdown("*Please sign in to start using Clare-AI*")
-    else:
-        if st.button("✏️ Edit Profile", use_container_width=True):
-            handle_profile_edit()
+    # Primary actions
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if not is_user_signed_in():
+            if st.button("🔑 Sign In", use_container_width=True, type="primary"):
+                handle_sign_in()
+        else:
+            if st.button("✏️ Profile", use_container_width=True):
+                handle_profile_edit()
+    with col_b:
+        if st.button("🔄 New Chat", use_container_width=True):
+            # Clear chat and any feedback-related keys
+            st.session_state.chat_history = []
+            keys_to_delete = [k for k in list(st.session_state.keys()) if str(k).startswith("feedback_")]
+            for k in keys_to_delete:
+                del st.session_state[k]
+            st.experimental_rerun()  # Refresh UI
+
+    # Signed-in summary with user status
+    if is_user_signed_in():
         student_name = get_current_student_name()
-        st.markdown(f"**Welcome back, {student_name}!**")
-        st.markdown(f"**Student ID:** {get_current_student_id()}")
+        student_id = get_current_student_id()
+        st.markdown(f"**Hello, {student_name}!**")
+        st.caption(f"ID: {student_id}")
 
-    # Course Information
-    st.markdown("""
-    ### 📚 Course Information
-    **IST 345.1 – Building Generative AI Applications**
+        # Show user status information
+        user_status = check_user_status(student_id)
+        if user_status["is_new_user"] or not user_status["is_profile_complete"]:
+            st.warning("⚠️ Profile incomplete")
+        else:
+            st.success("✅ Profile complete")
+            if user_status["last_login"]:
+                last_login = user_status["last_login"].strftime("%m/%d/%Y")
+                st.caption(f"Last login: {last_login}")
+    else:
+        st.caption("Please sign in to start using Clare-AI")
 
-    👥 **Contact Information:**
-    - **Instructor**: Yan Li – [Yan.Li@cgu.edu](mailto:Yan.Li@cgu.edu)
-    - **TA (Lab Tutoring)**: Kaijie Yu – [Kaijie.Yu@cgu.edu](mailto:Kaijie.Yu@cgu.edu)
-    - **TA (Data Management)**: Yongjia Sun – [Yongjia.Sun@cgu.edu](mailto:Yongjia.Sun@cgu.edu)
+    # Compact info using expanders
+    with st.expander("📚 Course Info", expanded=False):
+        st.markdown("**IST 345.1 – Building Generative AI Applications**")
+        st.markdown("""
+        - Instructor: Yan Li – [Yan.Li@cgu.edu](mailto:Yan.Li@cgu.edu)
+        - TA (Lab): Kaijie Yu – [Kaijie.Yu@cgu.edu](mailto:Kaijie.Yu@cgu.edu)
+        - TA (Data): Yongjia Sun – [Yongjia.Sun@cgu.edu](mailto:Yongjia.Sun@cgu.edu)
+        """)
 
-    ### 🎯 How Clare-AI Helps
-    - 📖 **Socratic Teaching**: Guides your thinking rather than giving direct answers
-    - 🧠 **Personalized Learning**: Adapts to your background and progress
-    - 📋 **Course Support**: Access to syllabus, assignments, and materials
-    - 🔍 **Smart Search**: RAG-powered document retrieval
-    """)
+    with st.expander("🎯 How Clare Helps", expanded=False):
+        st.markdown("""
+        - Socratic guidance, not direct answers
+        - Personalized to your profile
+        - Syllabus and materials shortcuts
+        - Smart search across course docs
+        """)
 
-# Profile Form (if triggered)
+    # Welcome and onboarding moved from center to sidebar
+    with st.expander("👋 Welcome & Getting Started", expanded=not is_user_signed_in()):
+        st.markdown("""
+        Clare-AI is your intelligent teaching assistant for the **Generative AI Applications** course.
+
+        **Features**
+        - 🎓 Personalized Learning: Tailored responses based on your profile
+        - 📚 Course Materials: Access to lectures, readings, and assignments
+        - 🤔 Socratic Method: Guided thinking instead of direct answers
+        - 🔍 Smart Search: Find relevant information quickly
+
+        **Getting Started**
+        1. Click "Sign In" above
+        2. Complete your learning profile (if new user)
+        3. Start asking questions about the course!
+        """)
+
+# Sign-In Form (Student ID Entry)
+if st.session_state.get("show_signin_form", False):
+    show_signin_form()
+    st.stop()
+
+# Profile Form (for new users or profile updates)
 if st.session_state.get("show_profile_form", False):
     from src.auth.profile_form import show_profile_form  # Import when needed
-    show_profile_form()
+
+    # Check if this is an update or new profile
+    user_status = st.session_state.get("user_status", {})
+    is_update = not (user_status.get("is_new_user", True) or not user_status.get("is_profile_complete", False))
+
+    if is_update:
+        # Returning user updating profile
+        st.info("✏️ Update your profile information below")
+        show_profile_form(is_update=True)
+    else:
+        # New user completing profile for first time
+        st.info("👋 Welcome! Please complete your learning profile to get started.")
+        show_profile_form(is_update=False)
+
     st.stop()
 
 # Main Chat Interface
 if not is_user_signed_in():
     st.info("🔑 Please sign in from the sidebar to start using Clare-AI")
-    st.markdown("""
-    ### 👋 Welcome to Clare-AI!
-
-    Clare-AI is your intelligent teaching assistant for the **Generative AI Applications** course.
-
-    **Features:**
-    - 🎓 **Personalized Learning**: Tailored responses based on your profile
-    - 📚 **Course Materials**: Access to lectures, readings, and assignments
-    - 🤔 **Socratic Method**: Guided thinking instead of direct answers
-    - 🔍 **Smart Search**: Find relevant information quickly
-
-    **Getting Started:**
-    1. Click "Sign In" in the sidebar
-    2. Complete your learning profile
-    3. Start asking questions about the course!
-    """)
     st.stop()
 
 # Chat Interface
@@ -138,6 +186,11 @@ for message in st.session_state.chat_history:
 
 # Chat input
 if prompt := st.chat_input("Ask Clare-AI about the course..."):
+    # Update last login for returning users on first interaction
+    student_id = get_current_student_id()
+    if len(st.session_state.chat_history) == 0:  # First message in this session
+        update_last_login(student_id)
+
     # Add user message to chat history
     st.session_state.chat_history.append({"role": "user", "content": prompt})
 

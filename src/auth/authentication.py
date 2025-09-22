@@ -63,12 +63,16 @@ def initialize_session_state():
         st.session_state["student_id"] = ""
     if "show_profile_form" not in st.session_state:
         st.session_state["show_profile_form"] = False
+    if "show_signin_form" not in st.session_state:
+        st.session_state["show_signin_form"] = False
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
+    if "user_status" not in st.session_state:
+        st.session_state["user_status"] = None
 
 def handle_sign_in():
-    """Handle sign-in button click - triggers the profile form."""
-    st.session_state["show_profile_form"] = True
+    """Handle sign-in button click - triggers the sign-in form."""
+    st.session_state["show_signin_form"] = True
     st.rerun()
 
 def handle_profile_edit():
@@ -142,7 +146,7 @@ def trigger_profile_update(student_id: str):
     """Trigger background profile update."""
     try:
         # Import here to avoid circular imports
-        from src.workflows.profile_analyzer import run_profile_analysis
+        from src.workflows.profile_analyzer import analyze_and_update_profile
 
         # Run profile analysis in background
         import asyncio
@@ -153,12 +157,12 @@ def trigger_profile_update(student_id: str):
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
                     future = executor.submit(
-                        lambda: asyncio.run(run_profile_analysis(student_id, "interaction"))
+                        lambda: asyncio.run(analyze_and_update_profile(student_id, "interaction"))
                     )
                     print(f"🔄 Profile update scheduled for {student_id}")
             else:
                 # We can run the coroutine directly
-                asyncio.run(run_profile_analysis(student_id, "interaction"))
+                asyncio.run(analyze_and_update_profile(student_id, "interaction"))
                 print(f"✅ Profile update completed for {student_id}")
         except Exception as e:
             print(f"Profile update failed for {student_id}: {e}")
@@ -179,3 +183,150 @@ def get_current_student_name() -> str:
 def get_current_student_id() -> str:
     """Get the current student's ID."""
     return st.session_state.get("student_id", "")
+
+def show_signin_form():
+    """Display the simple sign-in form for Student ID entry."""
+    st.markdown("### 🔑 Sign In to Clare-AI")
+    st.markdown("Enter your Student ID to continue")
+
+    with st.form("signin_form"):
+        student_id = st.text_input(
+            "Student ID",
+            placeholder="Enter your student ID (e.g., john.doe@cgu.edu)",
+            help="Use your CGU email or any unique identifier"
+        )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            submit_button = st.form_submit_button("🚀 Continue", type="primary", use_container_width=True)
+        with col2:
+            cancel_button = st.form_submit_button("❌ Cancel", use_container_width=True)
+
+        if submit_button:
+            if not student_id.strip():
+                st.error("⚠️ Please enter your Student ID")
+            else:
+                # Store student ID and check user status
+                st.session_state["student_id"] = student_id.strip()
+                user_status = check_user_status(student_id.strip())
+                st.session_state["user_status"] = user_status
+
+                # Close sign-in form
+                st.session_state["show_signin_form"] = False
+
+                if user_status["is_new_user"] or not user_status["is_profile_complete"]:
+                    # New user - show questionnaire
+                    st.session_state["show_profile_form"] = True
+                    st.success(f"👋 Welcome! Let's set up your profile.")
+                else:
+                    # Returning user - set profile data and update login
+                    existing_profile = get_profile_by_student_id(student_id.strip())
+                    if existing_profile:
+                        st.session_state["profile_data"] = existing_profile
+                    update_last_login(student_id.strip())
+                    st.success(f"🎉 Welcome back! You're ready to chat with Clare-AI.")
+
+                st.rerun()
+
+        elif cancel_button:
+            st.session_state["show_signin_form"] = False
+            st.rerun()
+
+def check_user_status(student_id: str) -> Dict[str, Any]:
+    """
+    Check if user is new or returning and their profile completion status.
+
+    Returns:
+        dict with keys: is_new_user, is_profile_complete, last_login, profile_version
+    """
+    if not student_id.strip():
+        return {
+            "is_new_user": True,
+            "is_profile_complete": False,
+            "last_login": None,
+            "profile_version": 0
+        }
+
+    try:
+        engine = get_database_engine()
+        query = text("""
+            SELECT is_profile_complete, last_login, profile_version
+            FROM student_profiles
+            WHERE student_id = :student_id
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """)
+
+        with engine.connect() as conn:
+            result = conn.execute(query, {"student_id": student_id.strip()}).fetchone()
+
+            if result:
+                # Returning user
+                return {
+                    "is_new_user": False,
+                    "is_profile_complete": result[0],
+                    "last_login": result[1],
+                    "profile_version": result[2]
+                }
+            else:
+                # New user
+                return {
+                    "is_new_user": True,
+                    "is_profile_complete": False,
+                    "last_login": None,
+                    "profile_version": 0
+                }
+
+    except Exception as e:
+        print(f"Error checking user status for {student_id}: {e}")
+        # Default to new user on error
+        return {
+            "is_new_user": True,
+            "is_profile_complete": False,
+            "last_login": None,
+            "profile_version": 0
+        }
+
+def update_last_login(student_id: str):
+    """Update the last_login timestamp for a user."""
+    try:
+        engine = get_database_engine()
+        query = text("""
+            UPDATE student_profiles
+            SET last_login = :current_time
+            WHERE student_id = :student_id
+        """)
+
+        with engine.connect() as conn:
+            conn.execute(query, {
+                "student_id": student_id.strip(),
+                "current_time": datetime.now(timezone.utc)
+            })
+            conn.commit()
+            print(f"Updated last_login for {student_id}")
+
+    except Exception as e:
+        print(f"Error updating last_login for {student_id}: {e}")
+
+def mark_profile_complete(student_id: str):
+    """Mark a user's profile as complete after questionnaire submission."""
+    try:
+        engine = get_database_engine()
+        query = text("""
+            UPDATE student_profiles
+            SET is_profile_complete = TRUE,
+                last_login = :current_time,
+                profile_version = profile_version + 1
+            WHERE student_id = :student_id
+        """)
+
+        with engine.connect() as conn:
+            conn.execute(query, {
+                "student_id": student_id.strip(),
+                "current_time": datetime.now(timezone.utc)
+            })
+            conn.commit()
+            print(f"Marked profile complete for {student_id}")
+
+    except Exception as e:
+        print(f"Error marking profile complete for {student_id}: {e}")

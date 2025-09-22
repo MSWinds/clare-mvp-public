@@ -568,7 +568,7 @@ def answer_generator(state):
     
     try:
         # Import the profile analyzer function
-        from profile_analyzer import get_profile_text_summary
+        from src.workflows.profile_analyzer import get_profile_text_summary
         
         student_id = state.get("student_id", "unknown")
         print(f"--- Retrieving learner profile for student: {student_id} ---")
@@ -635,18 +635,56 @@ def web_search(state):
 
     # Run the web search using the web search tool 
     web_results = web_search_tool.invoke(question)
+    
+    # Debug: Print the type and structure of web_results
+    print(f"Web search results type: {type(web_results)}")
+    print(f"Web search results: {web_results}")
 
-    # Convert raw web search results into a simplified format
-    formatted_web_results = [
-            {
-                "metadata": {
-                    "title": result["title"],
-                    "url": result["url"]
-                },
-                "page_content": result["content"]
-            }
-            for result in web_results
-        ]
+    # Handle different return formats from TavilySearch
+    if isinstance(web_results, str):
+        # If it's a string, wrap it in a simple format
+        formatted_web_results = [{
+            "metadata": {
+                "title": "Web Search Results",
+                "url": "N/A"
+            },
+            "page_content": web_results
+        }]
+    elif isinstance(web_results, list) and len(web_results) > 0:
+        # Check if the first item is a dict with expected keys
+        if isinstance(web_results[0], dict) and "title" in web_results[0]:
+            # Expected format with title, url, content
+            formatted_web_results = [
+                {
+                    "metadata": {
+                        "title": result.get("title", "No title"),
+                        "url": result.get("url", "No URL")
+                    },
+                    "page_content": result.get("content", result.get("snippet", "No content"))
+                }
+                for result in web_results
+            ]
+        else:
+            # Different format - try to extract what we can
+            formatted_web_results = [
+                {
+                    "metadata": {
+                        "title": f"Result {i+1}",
+                        "url": "N/A"
+                    },
+                    "page_content": str(result)
+                }
+                for i, result in enumerate(web_results)
+            ]
+    else:
+        # Fallback for unexpected format
+        formatted_web_results = [{
+            "metadata": {
+                "title": "Web Search Results",
+                "url": "N/A"
+            },
+            "page_content": str(web_results)
+        }]
     
     # Ensure previous documents are consistently formatted as LangChain Document objects
     documents = [

@@ -174,7 +174,7 @@ def convert_questionnaire_to_evidence(profile_data: Dict[str, Any]) -> list:
 def process_questionnaire_with_profile_analyzer(profile_data: Dict[str, Any]):
     """Process questionnaire through profile_analyzer and store in database"""
     try:
-        from src.workflows.profile_analyzer import run_profile_analysis
+        from src.workflows.profile_analyzer import analyze_and_update_profile
 
         student_id = profile_data["student_id"]
         evidence_items = convert_questionnaire_to_evidence(profile_data)
@@ -183,7 +183,7 @@ def process_questionnaire_with_profile_analyzer(profile_data: Dict[str, Any]):
 
         # Run the profile analysis asynchronously
         import asyncio
-        result = asyncio.run(run_profile_analysis(student_id, "questionnaire", evidence_items))
+        result = asyncio.run(analyze_and_update_profile(student_id, "questionnaire"))
 
         return {
             "success": True,
@@ -200,15 +200,19 @@ def process_questionnaire_with_profile_analyzer(profile_data: Dict[str, Any]):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-def show_profile_form():
+def show_profile_form(is_update: bool = False):
     """Display the student profile questionnaire form"""
 
     # Get existing profile data for editing
     existing_data = st.session_state.get("profile_data", {}) or {}
 
     with st.form("student_profile_form"):
-        st.header("🎓 Welcome! Let's personalize your learning with Clare")
-        st.markdown("Tell us a bit about yourself so Clare can support your study journey")
+        if is_update:
+            st.header("✏️ Update Your Learning Profile")
+            st.markdown("Update any information below and save your changes")
+        else:
+            st.header("🎓 Welcome! Let's personalize your learning with Clare")
+            st.markdown("Tell us a bit about yourself so Clare can support your study journey")
 
         # Part 1: Basic Information (Required)
         st.subheader("📝 Basic Information")
@@ -460,6 +464,12 @@ def show_profile_form():
                     process_questionnaire_with_profile_analyzer(profile_data)
                     st.success("✅ Profile saved and processing started!")
                     st.info("🔄 Your learning profile is being created in the background...")
+
+                    # Mark profile as complete for new users
+                    if not is_update:
+                        from src.auth.authentication import mark_profile_complete
+                        mark_profile_complete(student_id.strip())
+
                 except Exception as e:
                     st.error(f"⚠️ Profile saved to session, but processing failed: {e}")
                     print(f"Questionnaire processing error: {e}")
