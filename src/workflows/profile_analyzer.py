@@ -24,7 +24,7 @@ from langgraph.graph import StateGraph, END
 from typing import TypedDict, List, Dict, Any, Optional
 import asyncio
 
-from profile_schemas import LearnerProfile, EvidenceItem, EvidenceCollection
+from .profile_schemas import LearnerProfile, EvidenceItem, EvidenceCollection
 
 # Load environment variables
 load_dotenv()
