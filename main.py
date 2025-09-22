@@ -20,7 +20,6 @@ from src.auth.authentication import (
     store_chat_to_db,
     check_user_status,
     update_last_login,
-    mark_profile_complete,
     show_signin_form
 )
 

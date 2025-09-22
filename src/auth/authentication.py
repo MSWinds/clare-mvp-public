@@ -308,25 +308,3 @@ def update_last_login(student_id: str):
     except Exception as e:
         print(f"Error updating last_login for {student_id}: {e}")
 
-def mark_profile_complete(student_id: str):
-    """Mark a user's profile as complete after questionnaire submission."""
-    try:
-        engine = get_database_engine()
-        query = text("""
-            UPDATE student_profiles
-            SET is_profile_complete = TRUE,
-                last_login = :current_time,
-                profile_version = profile_version + 1
-            WHERE student_id = :student_id
-        """)
-
-        with engine.connect() as conn:
-            conn.execute(query, {
-                "student_id": student_id.strip(),
-                "current_time": datetime.now(timezone.utc)
-            })
-            conn.commit()
-            print(f"Marked profile complete for {student_id}")
-
-    except Exception as e:
-        print(f"Error marking profile complete for {student_id}: {e}")

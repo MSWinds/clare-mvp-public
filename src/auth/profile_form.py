@@ -467,7 +467,7 @@ def show_profile_form(is_update: bool = False):
 
                     # Mark profile as complete for new users
                     if not is_update:
-                        from src.auth.authentication import mark_profile_complete
+                        from src.database.config import mark_profile_complete
                         mark_profile_complete(student_id.strip())
 
                 except Exception as e:
