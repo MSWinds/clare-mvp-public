@@ -8,6 +8,7 @@ except ImportError:
     pass
 
 import os
+import json
 from sqlalchemy.engine.url import make_url # Used to parse and construct database URLs
 from langchain_postgres.vectorstores import PGVector # Integration with Postgres + pgvector for vector storage
 
@@ -507,13 +508,25 @@ def document_retriever(state):
         #print(f"     Document {i} from `{doc.metadata['source']}`, section_title {doc.metadata['section_title']}")
 
     # Convert retrieved documents into Document objects with metadata and page_content only
-    formatted_doc_results = [
-        Document(
-            metadata={k: v for k, v in doc.metadata.items() if k != 'rrf_score'}, # Remove rrf score and document id
+    formatted_doc_results = []
+    for doc in rag_fusion_mmr_results:
+        # Parse metadata if it's a JSON string
+        if isinstance(doc.metadata, str):
+            try:
+                metadata = json.loads(doc.metadata)
+            except (json.JSONDecodeError, TypeError):
+                metadata = {}
+        else:
+            metadata = doc.metadata if doc.metadata else {}
+
+        # Remove rrf_score if present
+        metadata = {k: v for k, v in metadata.items() if k != 'rrf_score'}
+
+        formatted_doc_results.append(Document(
+            metadata=metadata,
             page_content=doc.page_content
-        ) 
-        for doc in rag_fusion_mmr_results
-    ]
+        ))
+
 
     return {"documents": formatted_doc_results}
 
