@@ -1026,4 +1026,4 @@ workflow.add_conditional_edges(
 
 # --- Compile the graph ---
 def get_workflow():
-    return workflow
+    return workflow.compile()
