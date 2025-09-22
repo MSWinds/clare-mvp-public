@@ -6,7 +6,13 @@ Simplified Streamlit Interface using Modular Architecture
 import streamlit as st
 import asyncio
 import traceback
+import sys
+import os
 from functools import partial
+
+# Add current directory to Python path for Streamlit Cloud compatibility
+if os.path.dirname(__file__) not in sys.path:
+    sys.path.append(os.path.dirname(__file__))
 
 # Import our modular components
 from src.database.config import validate_env_vars, create_tables
