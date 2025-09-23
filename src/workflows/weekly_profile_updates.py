@@ -8,18 +8,15 @@ import os
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine, text
 
-# Load environment variables (only for local development)
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    # dotenv not available in production (Streamlit Cloud)
     pass
 
 from src.workflows.profile_analyzer import analyze_and_update_profile
 import json
 
-# Database connection
 connection_string = os.getenv("DATABASE_URL")
 if not connection_string:
     raise ValueError("DATABASE_URL environment variable not set.")
@@ -27,7 +24,6 @@ if not connection_string:
 engine = create_engine(connection_string)
 
 def get_students_with_recent_activity(days: int = 7) -> list[str]:
-    """Get list of student IDs with chat activity in the last N days."""
     query = text("""
         SELECT DISTINCT student_id, COUNT(*) as interaction_count
         FROM chat_history 
@@ -52,7 +48,6 @@ def get_students_with_recent_activity(days: int = 7) -> list[str]:
         return []
 
 def get_students_needing_profile_update(days: int = 7) -> list[str]:
-    """Get students who haven't had a profile update recently but have been active."""
     query = text("""
         WITH recent_activity AS (
             SELECT DISTINCT student_id
@@ -71,7 +66,7 @@ def get_students_needing_profile_update(days: int = 7) -> list[str]:
     """)
     
     activity_since = datetime.now(timezone.utc) - timedelta(days=days)
-    profile_since = datetime.now(timezone.utc) - timedelta(days=days//2)  # More frequent profile updates
+    profile_since = datetime.now(timezone.utc) - timedelta(days=days//2)
     
     try:
         with engine.connect() as conn:
@@ -89,13 +84,6 @@ def get_students_needing_profile_update(days: int = 7) -> list[str]:
         return []
 
 async def run_weekly_profile_updates(target_students: list[str] = None, force_update: bool = False):
-    """
-    Run weekly profile updates for active students.
-    
-    Args:
-        target_students: Specific students to update (optional)
-        force_update: Update all students regardless of recent activity
-    """
     print("🔄 Starting Weekly Profile Updates")
     print("=" * 50)
     
@@ -103,11 +91,9 @@ async def run_weekly_profile_updates(target_students: list[str] = None, force_up
         students_to_update = target_students
         print(f"Updating specific students: {students_to_update}")
     elif force_update:
-        # Get all students with any recent activity
-        students_to_update = get_students_with_recent_activity(days=30)  # Broader range
+        students_to_update = get_students_with_recent_activity(days=30)
         print("Force update mode - processing all recently active students")
     else:
-        # Get students who need updates based on activity vs last profile update
         students_to_update = get_students_needing_profile_update()
     
     if not students_to_update:
@@ -122,11 +108,9 @@ async def run_weekly_profile_updates(target_students: list[str] = None, force_up
         print(f"\n[{i}/{len(students_to_update)}] Processing student: {student_id}")
         
         try:
-            # Run weekly analysis (broader scope than interaction analysis)
             result = await analyze_and_update_profile(student_id, analysis_type="weekly")
             results.append(result)
             
-            # Log the result
             if result.get("save_status") == "success":
                 evidence_count = result.get("evidence_count", 0)
                 print(f"✅ Success - {evidence_count} evidence items processed")
@@ -141,10 +125,8 @@ async def run_weekly_profile_updates(target_students: list[str] = None, force_up
                 "timestamp": datetime.now(timezone.utc).isoformat()
             })
         
-        # Small delay between students to avoid overwhelming the system
         await asyncio.sleep(0.5)
     
-    # Summary report
     print("\n" + "=" * 50)
     print("📊 WEEKLY UPDATE SUMMARY")
     print("=" * 50)
@@ -160,7 +142,6 @@ async def run_weekly_profile_updates(target_students: list[str] = None, force_up
         total_evidence = sum(r.get("evidence_count", 0) for r in results if r.get("save_status") == "success")
         print(f"Total Evidence Items Processed: {total_evidence}")
     
-    # Save detailed results to file
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     results_file = f"weekly_update_results_{timestamp}.json"
     
@@ -170,7 +151,6 @@ async def run_weekly_profile_updates(target_students: list[str] = None, force_up
     print(f"Detailed results saved to: {results_file}")
 
 def list_active_students(days: int = 7):
-    """List students with recent activity for manual review."""
     students = get_students_with_recent_activity(days)
     
     if not students:
@@ -209,14 +189,12 @@ if __name__ == "__main__":
             if sys.argv[2] == "--force":
                 force_update = True
             else:
-                # Parse student IDs
                 student_arg = sys.argv[2]
                 if "," in student_arg:
                     target_students = [s.strip() for s in student_arg.split(",")]
                 else:
                     target_students = [student_arg.strip()]
         
-        # Run the updates
         asyncio.run(run_weekly_profile_updates(target_students, force_update))
     
     else:

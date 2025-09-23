@@ -1,25 +1,22 @@
 import os
 import uuid
 
-# Load environment variables (only for local development)
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    # dotenv not available in production (Streamlit Cloud)
     pass
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, text, Table, Column, MetaData, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import PromptTemplate
+from ..prompts.summarizer_prompts import gen_profile_prompt
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
-import asyncio # Import asyncio
+import asyncio
 
-
-# --- Environment Setup ---
 connection_string = os.getenv("DATABASE_URL")
 openai_api_key = os.getenv("OPENAI_API_KEY")
 
@@ -28,11 +25,9 @@ if not connection_string:
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
 
-# Initialize database engine
 engine = create_engine(connection_string)
 metadata = MetaData()
 
-# Define a table to store student profile summaries
 student_profiles = Table(
     'student_profiles', metadata,
     Column('id', PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
@@ -41,60 +36,28 @@ student_profiles = Table(
     Column('timestamp', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 )
 
-# Create tables if they don't exist
 try:
-    print("Creating tables if they don't exist...")
+    print("Creating tables if they don\'t exist...")
     metadata.create_all(engine)
     print("Tables checked/created.")
 except Exception as e:
     print(f"Error creating tables: {e}")
 
-# Initialize LLM
 llm_gpt = ChatOpenAI(
-    model="gpt-5",
+    model="gpt-4o",
     temperature=0.3,
-    api_key=openai_api_key,
-    reasoning={"effort": "minimal"}
+    api_key=openai_api_key
 )
 
-# Prompt template for profiling
-gen_profile_prompt = PromptTemplate(
-    input_variables=["chat_history"],
-    template=("""
-                You are an educational analyst reviewing a conversation between a student and an AI about a Generative AI course.
-                Your task is to:
-                Evaluate the student’s overall level of understanding.
-                Identify key concepts the student has grasped well and those they appear to struggle with.
-                Highlight any recurring topics, specific questions, or areas of particular interest or confusion.
-                Then, in no more than three sentences, provide clear and actionable recommendations for an AI teaching assistant. 
-                These recommendations should help the assistant personalize its support based on the student’s current knowledge level, learning gaps, and communication style.
-                The AI teaching assistant is designed to guide the student’s reasoning process, not simply provide answers. It should foster critical thinking, 
-                encourage deeper exploration, and use the student’s conversation history to adopt a tone and approach that feel personally tailored and supportive.
-                
-              **Chat History**:
-                {chat_history}
-
-              """
-        
-    )
-)
-
-# Define the state schema for the graph using TypedDict
 class StudentProfileState(TypedDict):
     """Represents the state of the student profiling graph."""
     student_id: str
     chat_history: str
     profile_summary: str
 
-# Build the state graph
 graph = StateGraph(StudentProfileState)
 
-
-# --- Define the node functions to return state updates (dictionaries) ---
-
-# Node to fetch history
 async def fetch_history(state: StudentProfileState) -> dict:
-    """Fetches recent chat history for the student from the database and returns state update."""
     student_id = state.get("student_id")
     print(f"Node 'fetch_history': Fetching history for student ID: {student_id}")
 
@@ -136,10 +99,7 @@ async def fetch_history(state: StudentProfileState) -> dict:
 
     return {"chat_history": chat_history_content}
 
-
-# Node to summarize and save
 async def summarize_and_save(state: StudentProfileState) -> dict:
-    """Generates profile summary using LLM, stores it, and returns state update."""
     student_id = state.get("student_id")
     chat_history = state.get("chat_history", "")
     print(f"Node 'summarize_and_save': Summarizing and saving for student ID: {student_id}")
@@ -151,13 +111,11 @@ async def summarize_and_save(state: StudentProfileState) -> dict:
          print(f"No valid chat history for {student_id}, generating a default message.")
          profile = chat_history
     else:
-        # Call LLM to generate profile summary using ainvoke
         try:
             messages = [
                 SystemMessage(content="Generate student profile summary for generative AI course."),
                 HumanMessage(content=gen_profile_prompt.format(chat_history=chat_history))
             ]
-            # Use ainvoke for async prediction and normalize content to text
             response = await llm_gpt.ainvoke(input=messages)
             content = response.content
             if isinstance(content, list):
@@ -169,7 +127,6 @@ async def summarize_and_save(state: StudentProfileState) -> dict:
             print(f"Error calling LLM for {student_id}: {e}")
             profile = f"Error generating profile summary for student ID {student_id}: {e}\n\nChat history used:\n{chat_history}"
 
-    # Store summary into database (This happens regardless of LLM success if student_id exists)
     if student_id:
         try:
             insert_stmt = student_profiles.insert().values(
@@ -188,38 +145,20 @@ async def summarize_and_save(state: StudentProfileState) -> dict:
 
     return {"profile_summary": profile}
 
-
-# --- Add nodes to the graph ---
 graph.add_node("fetch_history", fetch_history)
 graph.add_node("summarize_and_save", summarize_and_save)
 
-# Set the entry point
 graph.set_entry_point("fetch_history")
 
-# Add edges (transitions between nodes)
 graph.add_edge("fetch_history", "summarize_and_save")
 graph.add_edge("summarize_and_save", END)
 
-
-# Compile the graph
 app = graph.compile()
 
-# --- Make the entry point function async and await the graph invocation ---
 async def create_student_profile(student_id: str) -> str:
-    """
-    Runs the LangGraph agent (async) to generate a student profile summary
-    from chat history and store it in the database.
-
-    Args:
-        student_id: The unique identifier for the student.
-
-    Returns:
-        The generated profile summary string, or an error message.
-    """
     print(f"\n--- Starting profile generation for student ID: {student_id} ---")
     initial_state = {"student_id": student_id}
     try:
-        # Invoke the compiled graph asynchronously and await the result
         final_state = await app.ainvoke(initial_state)
         profile = final_state.get("profile_summary", "Profile generation completed but summary not found in final state.")
         print(f"--- Profile generation finished for student ID: {student_id} ---")
@@ -228,49 +167,8 @@ async def create_student_profile(student_id: str) -> str:
         print(f"An unexpected error occurred during graph execution for {student_id}: {e}")
         return f"Profile generation failed due to an unexpected error: {e}"
 
-# --- Use asyncio.run() to execute the top-level async function ---
 if __name__ == "__main__":
     test_student_id = "123456"
-
-    # --- Optional: Add dummy data for testing if chat_history is empty ---
-    # from datetime import timedelta # Already imported
-    # try:
-    #     with engine.begin() as conn:
-    #         # Add dummy data for test_student_id
-    #         conn.execute(text("""
-    #             INSERT INTO chat_history (id, student_id, user_input, ai_response, timestamp)
-    #             VALUES (:id, :sid, :ui, :ai, :ts)
-    #         """),
-    #         [
-    #             {"id": uuid.uuid4(), "sid": test_student_id, "ui": "What is a large language model?", "ai": "It's an AI trained on vast text data to understand and generate human-like text.", "ts": datetime.now(timezone.utc) - timedelta(hours=2)},
-    #             {"id": uuid.uuid4(), "sid": test_student_id, "ui": "How do they learn?", "ai": "They learn patterns, grammar, facts, and reasoning by predicting the next word in a sentence.", "ts": datetime.now(timezone.utc) - timedelta(hours=1)},
-    #             {"id": uuid.uuid4(), "sid": test_student_id, "ui": "Can they access the internet?", "ai": "Typically, base LLMs don't have real-time internet access, but they can be augmented with search tools.", "ts": datetime.now(timezone.utc) - timedelta(minutes=30)},
-    #         ])
-    #         print(f"Added dummy chat history for student ID: {test_student_id}")
-    # except Exception as e:
-    #     print(f"Could not add dummy chat history (is chat_history table created? Check DB_CONNECTION): {e}")
-    # --- End Optional Dummy Data Block ---
-
-    # Use asyncio.run() to execute the top-level async function
     generated_profile = asyncio.run(create_student_profile(test_student_id))
-
     print("\n--- Generated Student Profile Summary ---")
     print(generated_profile)
-
-    # Optional: Verify the profile was saved in the database (needs to be async if querying in async function)
-    # If you want to verify asynchronously after the run, you'd need another async function
-    # and run that as well, or do synchronous verification here if your DB library supports it
-    # synchronously. SQLAlchemy usually works fine synchronously outside the graph nodes.
-    # try:
-    #     print("\n--- Verifying saved profile in DB ---")
-    #     query_check = text("SELECT profile_summary, timestamp FROM student_profiles WHERE student_id = :sid ORDER BY timestamp DESC LIMIT 1")
-    #     with engine.connect() as conn:
-    #         latest_profile = conn.execute(query_check, {"sid": test_student_id}).fetchone()
-    #     if latest_profile:
-    #         print("Found latest profile in DB:")
-    #         print(f"Timestamp: {latest_profile.timestamp}")
-    #         print(f"Summary (first 200 chars): {latest_profile.profile_summary[:200]}...")
-    #     else:
-    #          print("No profile found in DB for this student ID.")
-    # except Exception as e:
-    #     print(f"Error verifying profile in DB: {e}")
