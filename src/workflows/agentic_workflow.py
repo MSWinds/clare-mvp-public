@@ -140,25 +140,33 @@ class GraphState(TypedDict):
 def document_retriever(state):
     print("\n---QUERY TRANSLATION AND RAG-FUSION---")
     question = state["question"]
+    # Generate multiple query variants
     multi_query_generator = (
         multi_query_generation_prompt
-        | llm_balanced
+        | llm_fast
         | StrOutputParser()
         | (lambda x: x.split("\n"))
     )
-    retrieval_chain_rag_fusion_mmr = (
-        multi_query_generator
-        | book_data_vector_store.as_retriever(
-            search_type="mmr",
-            search_kwargs={'k': 3, 'fetch_k': 15, "lambda_mult": 0.5}
-        ).map()
-        | reciprocal_rank_fusion
-    )
-    rag_fusion_mmr_results = retrieval_chain_rag_fusion_mmr.invoke({
+    queries = multi_query_generator.invoke({
         "question": question,
         "num_queries": 3,
         "vectorstore_content_summary": vectorstore_content_summary
     })
+
+    # Sequential retrieval (avoid concurrent DB hits)
+    retriever = book_data_vector_store.as_retriever(
+        search_type="mmr",
+        search_kwargs={'k': 3, 'fetch_k': 10, "lambda_mult": 0.5}
+    )
+    per_query_docs = []
+    for q in queries:
+        try:
+            per_query_docs.append(retriever.invoke(q))
+        except Exception:
+            # Best-effort: skip failed sub-query to keep the run resilient
+            continue
+
+    rag_fusion_mmr_results = reciprocal_rank_fusion(per_query_docs)
     top_k_results = rag_fusion_mmr_results[:5]
     print(f"Total number of results after fusion: {len(rag_fusion_mmr_results)}, taking top 5.")
     formatted_doc_results = []
@@ -265,7 +273,7 @@ def query_rewriter(state):
         generation=generation,
         vectorstore_content_summary=vectorstore_content_summary
     )
-    query_rewriter_result = llm_balanced.with_structured_output(method="json_mode").invoke(query_rewriter_prompt)
+    query_rewriter_result = llm_fast.with_structured_output(method="json_mode").invoke(query_rewriter_prompt)
     return {"question": query_rewriter_result['rewritten_question'], "original_question": question}
 
 def hallucination_checker_tracker(state):

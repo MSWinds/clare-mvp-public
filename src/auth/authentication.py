@@ -25,7 +25,7 @@ def get_profile_by_student_id(student_id: str) -> Optional[Dict[str, Any]]:
     try:
         engine = get_database_engine()
         query = text("""
-            SELECT profile_summary, timestamp
+            SELECT profile_summary, timestamp, student_name
             FROM student_profiles
             WHERE student_id = :student_id
             ORDER BY timestamp DESC
@@ -38,16 +38,27 @@ def get_profile_by_student_id(student_id: str) -> Optional[Dict[str, Any]]:
             if result:
                 profile_summary = result[0]
                 timestamp = result[1]
+                student_name = result[2]
 
                 # Handle both JSONB and text formats
                 if isinstance(profile_summary, dict):
-                    return profile_summary
+                    # Add student_name to the profile data
+                    profile_data = profile_summary.copy()
+                    if student_name:
+                        profile_data["name"] = student_name
+                    return profile_data
                 elif isinstance(profile_summary, str):
                     try:
-                        return json.loads(profile_summary)
+                        profile_data = json.loads(profile_summary)
+                        if student_name:
+                            profile_data["name"] = student_name
+                        return profile_data
                     except json.JSONDecodeError:
                         # If it's a plain text summary, wrap it
-                        return {"text_summary": profile_summary, "timestamp": timestamp.isoformat()}
+                        profile_data = {"text_summary": profile_summary, "timestamp": timestamp.isoformat()}
+                        if student_name:
+                            profile_data["name"] = student_name
+                        return profile_data
 
             return None
 
@@ -190,7 +201,31 @@ def is_user_signed_in() -> bool:
 def get_current_student_name() -> str:
     """Get the current student's name, or 'Student' as default."""
     if is_user_signed_in():
-        return st.session_state["profile_data"].get("name", "Student")
+        # First try to get from session state
+        name = st.session_state["profile_data"].get("name")
+        if name:
+            return name
+
+        # If not in session state, try to get from database
+        student_id = get_current_student_id()
+        if student_id:
+            try:
+                engine = get_database_engine()
+                query = text("""
+                    SELECT student_name
+                    FROM student_profiles
+                    WHERE student_id = :student_id
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                """)
+
+                with engine.connect() as conn:
+                    result = conn.execute(query, {"student_id": student_id}).fetchone()
+                    if result and result[0]:
+                        return result[0]
+            except Exception as e:
+                print(f"Error retrieving student name from database: {e}")
+
     return "Student"
 
 def get_current_student_id() -> str:

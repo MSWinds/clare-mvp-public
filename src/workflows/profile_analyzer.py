@@ -46,6 +46,7 @@ student_profiles = Table(
     Column('id', PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4),
     Column('student_id', String, nullable=False, index=True),
     Column('profile_summary', JSONB, nullable=False, default={}),
+    Column('student_name', String(255), nullable=True),
     Column('timestamp', DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 )
 

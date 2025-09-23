@@ -461,6 +461,10 @@ def show_profile_form(is_update: bool = False):
 
                 # Process questionnaire through profile_analyzer and store in database
                 try:
+                    # Store student name first
+                    from src.database.config import store_student_name
+                    store_student_name(student_id.strip(), student_name.strip())
+
                     process_questionnaire_with_profile_analyzer(profile_data)
                     st.success("✅ Profile saved and processing started!")
                     st.info("🔄 Your learning profile is being created in the background...")
