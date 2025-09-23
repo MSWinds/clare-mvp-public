@@ -50,7 +50,12 @@ except Exception as e:
     print(f"Error creating tables: {e}")
 
 # Initialize LLM
-llm_gpt = ChatOpenAI(model="gpt-4o", temperature=0.3, api_key=openai_api_key)
+llm_gpt = ChatOpenAI(
+    model="gpt-5",
+    temperature=0.3,
+    api_key=openai_api_key,
+    reasoning={"effort": "minimal"}
+)
 
 # Prompt template for profiling
 gen_profile_prompt = PromptTemplate(
@@ -152,9 +157,13 @@ async def summarize_and_save(state: StudentProfileState) -> dict:
                 SystemMessage(content="Generate student profile summary for generative AI course."),
                 HumanMessage(content=gen_profile_prompt.format(chat_history=chat_history))
             ]
-            # Use ainvoke for async prediction and await it
+            # Use ainvoke for async prediction and normalize content to text
             response = await llm_gpt.ainvoke(input=messages)
-            profile = response.content
+            content = response.content
+            if isinstance(content, list):
+                profile = "".join(part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text")
+            else:
+                profile = str(content)
             print("Profile summary generated successfully.")
         except Exception as e:
             print(f"Error calling LLM for {student_id}: {e}")

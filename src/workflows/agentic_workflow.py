@@ -89,18 +89,35 @@ else:
     print("All environment variables loaded successfully")
 
 
+# Normalize Responses-style content blocks to plain text
+def _to_text(content):
+    try:
+        if isinstance(content, list):
+            return "".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        if isinstance(content, dict):
+            return content.get("text", str(content))
+        return content if isinstance(content, str) else str(content)
+    except Exception:
+        return str(content)
+
 # Main LLM for handling complex or creative tasks
 llm_gpt = ChatOpenAI(
-    model="gpt-4o", # GPT-4o is a powerful model with strong reasoning capabilities
+    model="gpt-5",
     temperature=0.5,
-    api_key=openai_api_key
+    api_key=openai_api_key,
+    reasoning={"effort": "minimal"}
 )
 
 # Lightweight LLM for simple or deterministic tasks
 llm_gpt_mini = ChatOpenAI(
-    model="gpt-4o-mini",    #  Smaller, faster variant for lightweight tasks
-    temperature=0,          # Temperature 0 = fully deterministic output
-    api_key=openai_api_key
+    model="gpt-5-mini",
+    temperature=0,
+    api_key=openai_api_key,
+    reasoning={"effort": "minimal"}
 )
 
 # Connect to the PGVector Vector Store that contains book data.
@@ -606,7 +623,7 @@ def answer_generator(state):
     answer_generation = llm_gpt.invoke(answer_generator_prompt)
     print(f"Answer generation has been generated.")
 
-    return {"generation": answer_generation.content}
+    return {"generation": _to_text(answer_generation.content)}
 
 
 # ------------------------ Web Searcher Node ------------------------
@@ -721,7 +738,7 @@ def chitter_chatter(state):
         [SystemMessage(chitterchatter_prompt),
          HumanMessage(question)])
     
-    return {"generation": chitterchatter_response.content}
+    return {"generation": _to_text(chitterchatter_response.content)}
 
 # ------------------------ Adaptive Query Rewrite Node ------------------------
 def query_rewriter(state):

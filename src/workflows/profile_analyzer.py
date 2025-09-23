@@ -52,8 +52,18 @@ student_profiles = Table(
 )
 
 # Initialize LLMs
-llm_gpt = ChatOpenAI(model="gpt-4o", temperature=0.1, api_key=openai_api_key)
-llm_mini = ChatOpenAI(model="gpt-4o-mini", temperature=0.3, api_key=openai_api_key)
+llm_gpt = ChatOpenAI(
+    model="gpt-5",
+    temperature=0.1,
+    api_key=openai_api_key,
+    reasoning={"effort": "minimal"}
+)
+llm_mini = ChatOpenAI(
+    model="gpt-5-mini",
+    temperature=0.3,
+    api_key=openai_api_key,
+    reasoning={"effort": "minimal"}
+)
 
 # Text Summary Generation Prompt for MVP
 PROFILE_MERGE_SYSTEM_PROMPT = """You are an AI educational analyst creating personalized learner profiles for Clare-AI teaching assistant.
@@ -199,7 +209,11 @@ async def extract_evidence(state: ProfileAnalysisState) -> Dict[str, Any]:
         ]
         
         response = await llm_mini.ainvoke(messages)
-        evidence_json = response.content.strip()
+        content = response.content
+        if isinstance(content, list):
+            evidence_json = "".join(part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text").strip()
+        else:
+            evidence_json = str(content).strip()
         
         # Parse JSON response
         evidence_items = json.loads(evidence_json)
@@ -290,13 +304,18 @@ evidence = {json.dumps(evidence_items, indent=2)}"""
         
         # Parse the response - should be {"text_summary": "..."}
         try:
-            updated_profile = json.loads(response.content.strip())
+            content = response.content
+            if isinstance(content, list):
+                text = "".join(part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text")
+            else:
+                text = str(content)
+            updated_profile = json.loads(text.strip())
             if "text_summary" not in updated_profile:
                 # Fallback if LLM didn't follow format
-                updated_profile = {"text_summary": response.content.strip()}
+                updated_profile = {"text_summary": text.strip()}
         except json.JSONDecodeError:
             # Fallback if response isn't valid JSON
-            updated_profile = {"text_summary": response.content.strip()}
+            updated_profile = {"text_summary": text.strip()}
         
         print("Profile merge completed successfully.")
         return {"updated_profile": updated_profile}
@@ -444,7 +463,12 @@ async def extract_evidence_from_recent_history(student_id: str, limit: int = 5) 
         ]
         
         response = await llm_mini.ainvoke(messages)
-        evidence_items = json.loads(response.content.strip())
+        content = response.content
+        if isinstance(content, list):
+            text = "".join(part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text")
+        else:
+            text = str(content)
+        evidence_items = json.loads(text.strip())
         
         return evidence_items
         

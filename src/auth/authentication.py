@@ -86,15 +86,28 @@ def handle_profile_cancel():
     st.rerun()
 
 def store_chat_to_db(student_id: str, user_input: str, ai_response: str):
-    """Store chat interaction to database."""
+    """Store chat interaction to database. Coerces non-string responses to JSON strings."""
     try:
         engine = get_database_engine()
+        # Normalize inputs to strings for TEXT columns
+        try:
+            ui_text = user_input if isinstance(user_input, str) else str(user_input)
+        except Exception:
+            ui_text = str(user_input)
+
+        try:
+            if isinstance(ai_response, (dict, list)):
+                ai_text = json.dumps(ai_response, ensure_ascii=False)
+            else:
+                ai_text = ai_response if isinstance(ai_response, str) else str(ai_response)
+        except Exception:
+            ai_text = str(ai_response)
         with engine.connect() as conn:
             insert_stmt = chat_history_table.insert().values(
                 id=uuid.uuid4(),
                 student_id=student_id,
-                user_input=user_input,
-                ai_response=ai_response,
+                user_input=ui_text,
+                ai_response=ai_text,
                 timestamp=datetime.now(timezone.utc)
             )
             conn.execute(insert_stmt)
